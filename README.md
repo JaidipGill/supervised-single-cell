@@ -41,6 +41,14 @@ Computationally Integrated ATAC/RNA dataset
 - Effect of integration method on classification quality 
 - Effect of ML model choice on integrated classification quality
 
+## Data
+[PBMC 10K Data](https://figshare.manchester.ac.uk/articles/dataset/TriTan_An_efficient_triple_non-negative_matrix_factorisation_method_for_integrative_analysis_of_single-cell_multiomics_data/23283998/1)
+
+[Alzheimers Mouse Data (Not using due to lack of cell name annotations)](https://www.10xgenomics.com/resources/datasets/multiomic-integration-neuroscience-application-note-single-cell-multiome-rna-atac-alzheimers-disease-mouse-model-brain-coronal-sections-from-one-hemisphere-over-a-time-course-1-standard)
+
+## Files
+- Old Scripts - Contains pre-processing and exploration of alzheimers mouse data
+- Pre-processing.py - Contains pre-processing and exploration of annotated PBMC 10K data
 
 
 
