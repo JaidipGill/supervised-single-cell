@@ -1,0 +1,68 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r Loading Packages}
+library(Seurat)
+library(Matrix)
+library(tidyverse)
+```
+
+```{r Loading data}
+# Load the matrix
+matrix <- readMM(file = "Multiome_RNA_ATAC_Mouse_Brain/matrix.mtx")
+# Load the features and barcodes
+features <- read.delim(file = "Multiome_RNA_ATAC_Mouse_Brain/features.tsv", header = FALSE)
+barcodes <- read.delim(file = "Multiome_RNA_ATAC_Mouse_Brain/barcodes.tsv", header = FALSE)
+
+```
+
+```{r Pre-processing}
+# Split the features into RNA and ATAC
+# Add column names (cell barcodes) to the matrix
+colnames(matrix) <- barcodes$V1
+
+# Add row names (gene identifiers) to the matrix
+rownames(matrix) <- features$V1
+
+rna_features <- features[features$V3 == "Gene Expression",]
+atac_features <- features[features$V3 == "Peaks",]
+
+# Create a Seurat object for the RNA data
+rna_matrix <- matrix[row.names(matrix) %in% rna_features$V1, ]
+colnames(rna_matrix) <- colnames(matrix)
+rna_seurat <- CreateSeuratObject(counts = rna_matrix)
+
+# Create a Seurat object for the ATAC data
+atac_matrix <- matrix[row.names(matrix) %in% atac_features$V1, ]
+colnames(atac_matrix) <- colnames(matrix)
+atac_seurat <- CreateSeuratObject(counts = atac_matrix)
+
+# Combine the two Seurat objects into a single object with multiple assays
+names(atac_seurat@assays) <- "ATAC"
+atac_seurat@meta.data <- rename(atac_seurat@meta.data, 
+                                nCount_ATAC = nCount_RNA, 
+                                nFeature_ATAC = nFeature_RNA)
+# create a new assay to store ADT information
+atac_assay <- CreateAssayObject(counts = atac_matrix)
+
+# add this assay to the previously created Seurat object
+rna_seurat[["ATAC"]] <- atac_assay
+
+# Validate that the object now contains multiple assays
+Assays(rna_seurat)
+
+# Save the Seurat object to a file
+saveRDS(rna_seurat, file = "Multiome_RNA_ATAC_Mouse_Brain/combined_seurat.rds")
+```
+
+```{r}
+library(SingleCellMultiModal)
+library(MultiAssayExperiment)
+library(scran)
+library(scater)
+
+mae <- scMultiome("pbmc_10x", mode = "*", dry.run = FALSE, format = "MTX")
+```
+

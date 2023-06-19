@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r Loading Packages}
+library(Seurat)
+library(Matrix)
+library(tidyverse)
+#library(Signac)
+```
+
+```{r}
+# Load the Seurat object from a file
+combined_seurat <- readRDS(file = "Multiome_RNA_ATAC_Mouse_Brain/combined_seurat.rds")
+```
+
+```{r}
+# Subset the Seurat object 
+subset_seurat <- combined_seurat[,1:1000]
+rm(combined_seurat)
+```
+
+```{r}
+# Visualize QC metrics as a violin plot
+#mt_genes<-c('ENSMUSG00000064337','ENSMUSG00000064339','ENSMUSG00000064336','ENSMUSG00000064338','ENSMUSG00000064340','ENSMUSG00000064342','ENSMUSG00000064343','ENSMUSG00000064344','ENSMUSG00000064346','ENSMUSG00000064347','ENSMUSG00000064348','ENSMUSG00000064349','ENSMUSG00000064350','ENSMUSG00000064352','ENSMUSG00000064353','ENSMUSG00000064355','ENSMUSG00000064359','ENSMUSG00000064361','ENSMUSG00000064364','ENSMUSG00000064365','ENSMUSG00000064366','ENSMUSG00000064369','ENSMUSG00000064371','ENSMUSG00000064372')
+#subset_seurat$mitoPercent<-PercentageFeatureSet(subset_seurat, features=mt_genes)
+
+#Pre-processing
+#DefaultAssay(subset_seurat) <- "ATAC"
+#subset_seurat <- NucleosomeSignal(subset_seurat)
+#subset_seurat <- TSSEnrichment(subset_seurat)
+
+#QC
+DefaultAssay(subset_seurat) <- "RNA"
+VlnPlot(subset_seurat, features = c("nFeature_RNA", "nCount_RNA","nFeature_ATAC", "nCount_ATAC",
+                                    #"TSS.enrichment", "nucleosome_signal", 
+                                    "mitoPercent"), ncol = 4)
+hist(subset_seurat$nCount_RNA,breaks=200)
+filtered_seurat <- subset(subset_seurat, subset = nFeature_RNA > 200 
+                          & nFeature_RNA < 100000
+                          & nCount_RNA > 200 
+                          & nFeature_ATAC > 200 
+                          & nCount_ATAC > 200
+                          #& nucleosome_signal < 2 
+                          #& TSS.enrichment > 2
+                          )
+subset_seurat
+filtered_seurat
+VlnPlot(filtered_seurat, features = c("nFeature_RNA", "nCount_RNA","nFeature_ATAC", "nCount_ATAC", "mitoPercent"), ncol = 5)
+
+#Normalisation - MUST REPEAT BELOW STEPS FOR BOTH RNA AND ATAC BY SWITCHING DEFAULT ASSAY
+filtered_seurat <- NormalizeData(filtered_seurat, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Variable selection
+filtered_seurat <- FindVariableFeatures(filtered_seurat, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(filtered_seurat), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(filtered_seurat)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+
+#Scalin Data
+all.genes <- rownames(filtered_seurat)
+filtered_seurat <- ScaleData(filtered_seurat, features = all.genes)
+```
+```{r}
+#Normalisation - MUST REPEAT BELOW STEPS FOR BOTH RNA AND ATAC BY SWITCHING DEFAULT ASSAY
+DefaultAssay(filtered_seurat) <- "ATAC"
+filtered_seurat <- NormalizeData(filtered_seurat, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Variable selection
+filtered_seurat <- FindVariableFeatures(filtered_seurat, selection.method = "vst", nfeatures = 2000)
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(filtered_seurat), 10)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(filtered_seurat)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot1 + plot2
+
+#Scalin Data
+all.genes <- rownames(filtered_seurat)
+filtered_seurat <- ScaleData(filtered_seurat, features = all.genes)
+```
+
+```{r}
+#PCA - ATAC
+DefaultAssay(filtered_seurat) <- "ATAC"
+filtered_seurat <- RunPCA(filtered_seurat, features = VariableFeatures(object = filtered_seurat))
+VizDimLoadings(filtered_seurat, dims = 1:2, reduction = "pca")
+DimPlot(filtered_seurat, reduction = "pca")
+ElbowPlot(filtered_seurat) # Majority variance captured in first 7 PCs
+```
+```{r}
+#PCA - RNA
+DefaultAssay(filtered_seurat) <- "RNA"
+filtered_seurat <- RunPCA(filtered_seurat, features = VariableFeatures(object = filtered_seurat))
+VizDimLoadings(filtered_seurat, dims = 1:2, reduction = "pca")
+DimPlot(filtered_seurat, reduction = "pca")
+ElbowPlot(filtered_seurat) # Majority variance captured in first 7 PCs
+```
+
+```{r}
+DefaultAssay(filtered_seurat) <- "RNA"
+
+# Calculate the correlation matrix
+sparse.cor <- function(x){
+  n <- nrow(x)
+  m <- ncol(x)
+  ii <- unique(x@i)+1 # rows with a non-zero element
+
+  Ex <- colMeans(x)
+  nozero <- as.vector(x[ii,]) - rep(Ex,each=length(ii))        # colmeans
+
+  covmat <- ( crossprod(matrix(nozero,ncol=m)) +
+              crossprod(t(Ex))*(n-length(ii))
+            )/(n-1)
+  sdvec <- sqrt(diag(covmat))
+  covmat/crossprod(t(sdvec))
+}
+
+expr_matrix <- sparse.cor(t(filtered_seurat@assays$RNA@data[VariableFeatures(filtered_seurat),]))
+heatmap(expr_matrix)
+```
+```{r}
+DefaultAssay(filtered_seurat) <- "ATAC"
+
+# Calculate the correlation matrix
+sparse.cor <- function(x){
+  n <- nrow(x)
+  m <- ncol(x)
+  ii <- unique(x@i)+1 # rows with a non-zero element
+
+  Ex <- colMeans(x)
+  nozero <- as.vector(x[ii,]) - rep(Ex,each=length(ii))        # colmeans
+
+  covmat <- ( crossprod(matrix(nozero,ncol=m)) +
+              crossprod(t(Ex))*(n-length(ii))
+            )/(n-1)
+  sdvec <- sqrt(diag(covmat))
+  covmat/crossprod(t(sdvec))
+}
+
+expr_matrix <- sparse.cor(t(filtered_seurat@assays$RNA@data[VariableFeatures(filtered_seurat),]))
+heatmap(expr_matrix)
+```
+
+```{r}
+#Clustering
+filtered_seurat <- FindNeighbors(filtered_seurat, dims = 1:7)
+filtered_seurat <- FindClusters(filtered_seurat, resolution = 0.8, verbose = FALSE)
+filtered_seurat <- RunUMAP(filtered_seurat, dims = 1:7)
+DimPlot(filtered_seurat, label = TRUE)
+```
+
+
