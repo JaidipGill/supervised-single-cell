@@ -46,9 +46,11 @@ Computationally Integrated ATAC/RNA dataset
 
 [Alzheimers Mouse Data (Not using due to lack of cell name annotations)](https://www.10xgenomics.com/resources/datasets/multiomic-integration-neuroscience-application-note-single-cell-multiome-rna-atac-alzheimers-disease-mouse-model-brain-coronal-sections-from-one-hemisphere-over-a-time-course-1-standard)
 
+[Purified PBMC Data (Best annotations but scRNA only)](https://github.com/10XGenomics/single-cell-3prime-paper/tree/master/pbmc68k_analysis)
 ## Files
-- Old Scripts - Contains pre-processing and exploration of alzheimers mouse data
-- Pre-processing.py - Contains pre-processing and exploration of annotated PBMC 10K data
+Old Scripts - Contains pre-processing and exploration of alzheimers mouse data
+
+Pre-processing.py - Contains pre-processing and exploration of annotated PBMC 10K data
 
 
 
