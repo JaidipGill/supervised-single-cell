@@ -68,7 +68,7 @@ print(mdata['rna'].n_obs)
 #Filtering out cells with more than 15000 counts (e.g. doublets)
 mu.pp.filter_obs(mdata['rna'], 'total_counts', lambda x: x < 15000)
 print(mdata['rna'].n_obs)
-#Filtering out cells with more than 5% mitochondrial genes
+#Filtering out cells with more than 20% mitochondrial genes
 mu.pp.filter_obs(mdata['rna'], 'pct_counts_mt', lambda x: x < 20)
 print(mdata['rna'].n_obs)
 
