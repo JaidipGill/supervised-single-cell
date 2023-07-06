@@ -6,13 +6,18 @@ import h5py as h5
 import pandas as pd
 from muon import atac as ac
 import numpy as np
-from sklearn.model_selection import train_test_split
+import scipy
+from sklearn.cross_decomposition import CCA
+from sklearn.decomposition import PCA
+from sklearn.discriminant_analysis import StandardScaler
+from sklearn.model_selection import LearningCurveDisplay, train_test_split
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
+from sklearn.utils import resample
 from xgboost import XGBClassifier
 import time
 from sklearn.metrics import classification_report
@@ -46,10 +51,10 @@ def train_test_split_mdata(mdata_obj):
 
     return mdata_train, mdata_test
 
-def pre_process(adata):
+def pre_process_train(adata):
 
     '''
-    Pre-process MuData object for either RNA or ATAC modality
+    Pre-process MuData TRAIN object for either RNA or ATAC modality
     '''
 
     # Filter out low-frequency features
@@ -61,25 +66,191 @@ def pre_process(adata):
     # Normalizing peaks/genes
     print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}")
     sc.pp.normalize_total(adata, target_sum=1e4) # Normalize counts per cell
-    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}")
+    print(f"Total peaks/genes in random cell (Should be 10000): {adata.X[1,:].sum()}") # Sanity check for normalization - should be 1e4
     sc.pp.log1p(adata) # Logarithmize + 1
-    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}") # Sanity check for normalization - should be 1e4
+    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}") 
 
     # Filtering features
     sc.pp.highly_variable_genes(adata) # Select highly variable genes
     sc.pl.highly_variable_genes(adata) # Plot highly variable genes
+    mu.pp.filter_var(adata, 'highly_variable', lambda x: x == True) # Filter out non-highly variable genes
     print(f"Number of highly variable peaks/genes: {np.sum(adata.var.highly_variable)}")
-    print(f"Number of peaks/genes before filtering: {adata.n_vars}")
-    #adata = adata[:, adata.var.highly_variable] # Filter out non-highly variable genes
-    print(f"Number of peaks/genes after filtering: {adata.n_vars}")
+    print(f"Number of peaks/genes after filtering: {adata.shape[1]}")
 
     # Scaling
     adata.raw = adata # Store unscaled counts in .raw attribute
     sc.pp.scale(adata) # Scale to unit variance and shift to zero mean
     print(f"Min Scaled peaks/genes value:{adata.X.min()}") 
+    print(f"Min unscaled peaks/genes value - Should not be negative: {adata.raw.X.min()}") # Sanity check for scaling - should not be negative
+
+    return adata
+
+def pre_process_test(adata, adata_train):
+
+    '''
+    Pre-process MuData TEST object for either RNA or ATAC modality using 
+    parameters from pre-processing of TRAIN object
+    '''
+
+    # Filtering features
+    mu.pp.filter_var(adata, adata_train.var.index) # Filter out non-highly variable genes
+    print(f"Number of peaks/genes after filtering: {adata.shape[1]}")
+
+    # Saving raw counts
+    adata.layers["counts"] = adata.X # Store unscaled counts in .layers["counts"] attribute
+
+    # Normalizing peaks/genes
+    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}")
+    sc.pp.normalize_total(adata, target_sum=1e4) # Normalize counts per cell
+    print(f"Total peaks/genes in random cell (Should be 10000): {adata.X[1,:].sum()}") # Sanity check for normalization - should be 1e4
+    sc.pp.log1p(adata) # Logarithmize + 1
+    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}") 
+
+    # Scaling
+    adata.raw = adata # Store unscaled counts in .raw attribute
+    adata.X = adata.X.toarray()
+    adata.X = (adata.X - adata_train.var['mean'].values[np.newaxis,:])/adata_train.var['std'].values[np.newaxis,:]
+    print(f"Min Scaled peaks/genes value:{adata.X.min()}") 
     print(f"Min unscaled peaks/genes value: {adata.raw.X.min()}") # Sanity check for scaling - should not be negative
 
     return adata
+
+def perform_pca(mdata_train, mdata_test, components=20, random_state=42):
+    '''
+    Perform PCA on RNA and ATAC modalities of given mdata_train and mdata_test
+    '''
+    pca ={}
+    for mod in ['rna', 'atac']:
+        st=time.process_time()
+        pca[mod] = PCA(n_components=components, random_state=random_state).fit(mdata_train.mod[mod].X)
+
+        # Transform count matrix using pca and store in mdata object
+        mdata_train.mod[mod].obsm['X_pca'] = pca[mod].transform(mdata_train.mod[mod].X)
+        mdata_test.mod[mod].obsm['X_pca'] = pca[mod].transform(mdata_test.mod[mod].X)
+        et=time.process_time()
+        mdata_train.mod[mod].varm['PCs'] = np.transpose(pca[mod].components_)
+        print(f"PCA {mod} took {et-st} seconds")
+
+        # Scree plot
+        PC_values = np.arange(pca[mod].n_components_) + 1
+        plt.plot(PC_values, pca[mod].explained_variance_ratio_, 'ro-', linewidth=2)
+        plt.title('Scree Plot')
+        plt.xlabel('Principal Component')
+        plt.ylabel('Proportion of Variance Explained')
+        plt.show()
+    
+        # Ask user input for desired number of PCs and store it
+        num_pcs = int(input(f"Enter the number of PCs you want to keep for {mod}: "))
+        print(f"PCA {mod} with {num_pcs} PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:num_pcs])[-1]*100}% of variance")
+
+    return mdata_train, mdata_test, pca
+
+def perform_cca(mdata_train, mdata_test, n_components=20):
+    '''
+    Performs CCA on the data and adds the CCA components to the mdata object.
+    Also generates scree plot of correlation between each CCA component.
+    '''
+    # Perform CCA
+    cca = CCA(n_components=n_components, scale=False)
+    st=time.process_time()
+    cca.fit(mdata_train.mod['rna'].X, mdata_train.mod['atac'].X)
+    rna_train, atac_train = cca.transform(mdata_train.mod['rna'].X, mdata_train.mod['atac'].X)
+    rna_test, atac_test = cca.transform(mdata_test.mod['rna'].X, mdata_test.mod['atac'].X)
+    et=time.process_time()
+    print('CCA took {} seconds'.format(et-st))
+    
+    # Add CCA components to mdata
+    mdata_train.mod['rna'].obsm['cca'] = rna_train
+    mdata_train.mod['atac'].obsm['cca'] = atac_train
+    mdata_test.mod['rna'].obsm['cca'] = rna_test
+    mdata_test.mod['atac'].obsm['cca'] = atac_test
+
+    # Scree plot
+    # sklearn CCA doesn't directly provide the canonical correlations,
+    # so we compute them as follows:
+    correlations = [np.corrcoef(rna_train[:,i], atac_train[:,i])[0,1] for i in range(rna_train.shape[1])]
+
+    # Plot the square of the canonical correlations
+    eigenvalues = np.square(correlations)
+    plt.plot(range(1, len(eigenvalues) + 1), eigenvalues, 'ro-', linewidth=2)
+    plt.title('Scree Plot')
+    plt.xlabel('Canonical Variate')
+    plt.ylabel('Squared Canonical Correlation')
+    plt.show()
+
+    return mdata_train, mdata_test
+
+def generate_feature_matrix(mdata_train, mdata_test, y_train, y_test, embedding, n_components_rna, n_components_atac):
+    if embedding == 'PCA':
+        obsm = 'X_pca'
+    elif embedding == 'CCA':
+        obsm = 'cca'
+    # Generating feature matrix for training set
+    X_train = np.concatenate((mdata_train.mod['rna'].obsm[obsm][:,:n_components_rna], mdata_train.mod['atac'].obsm[obsm][:,:n_components_atac]), axis=1)
+    # Convert to dataframe
+    X_train = pd.DataFrame(X_train, columns=[f"RNA Comp{i}" for i in range(1,n_components_rna+1)] + [f"ATAC Comp{i}" for i in range(1,n_components_atac+1)])
+    print(X_train.head())
+
+    # Generating feature matrix for test set
+    X_test = np.concatenate((mdata_test.mod['rna'].obsm[obsm][:,:n_components_rna], mdata_test.mod['atac'].obsm[obsm][:,:n_components_atac]), axis=1)
+    # Convert to dataframe
+    X_test = pd.DataFrame(X_test, columns=[f"RNA Comp{i}" for i in range(1,n_components_rna+1)] + [f"ATAC Comp{i}" for i in range(1,n_components_atac+1)])
+    print(X_test.head())
+
+    # Standardization
+    sclr = StandardScaler().fit(X_train)
+    X_train = sclr.transform(X_train)
+    X_test = sclr.transform(X_test)
+
+    # Convert back to dataframe format with column names
+    X_train = pd.DataFrame(X_train, columns=[f"RNA PC{i}" for i in range(1,n_components_rna+1)] + [f"ATAC PC{i}" for i in range(1,n_components_atac+1)])
+    X_test = pd.DataFrame(X_test, columns=[f"RNA PC{i}" for i in range(1,n_components_rna+1)] + [f"ATAC PC{i}" for i in range(1,n_components_atac+1)])
+
+    # Create DataFrame from X_train and X_test
+    train_data = pd.DataFrame(X_train)
+    test_data = pd.DataFrame(X_test)
+
+    # Add y_train and y_test as columns
+    train_data['label'] = y_train
+    test_data['label'] = y_test
+
+    # Removing rows with NaN values
+    train_data = train_data.dropna(subset=['label'])
+    test_data = test_data.dropna(subset=['label'])
+
+    # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
+    X_train = train_data.iloc[:, :-1]
+    y_train = train_data['label'].to_numpy()
+
+    X_test = test_data.iloc[:, :-1]
+    y_test = test_data['label'].to_numpy()
+
+    print(X_train.head())
+    print(X_test.head())
+    print(set(y_train))
+    print(set(y_test))
+    return X_train, X_test, y_train, y_test
+
+def bootstrap_confidence_interval(model, X, y, n_bootstrap=1000):
+    """
+    Function to estimate a 95% confidence interval for a model's F1 score using bootstrapping.
+    """
+    f1_scores = []
+    for _ in range(n_bootstrap):
+        X_resample, y_resample = resample(X, y, n_samples=len(X) // 2)
+        y_pred = model.predict(X_resample)
+        f1_scores.append(f1_score(y_resample, y_pred, average='macro'))
+    lower = np.percentile(f1_scores, 2.5)
+    upper = np.percentile(f1_scores, 97.5)
+    mean = np.mean(f1_scores)
+    median = np.median(f1_scores)
+    # Plot histogram of F1 scores
+    plt.hist(f1_scores)
+    plt.title("Histogram of F1 scores")
+    plt.xlabel("F1 score")
+    plt.ylabel("Frequency")
+    plt.show()
+    return lower, upper, mean, median
 
 def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=False):
     '''
@@ -100,7 +271,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
         y_test = encoder.transform(y_test)
     elif  isinstance(model, RandomForestClassifier):
         param_grid={'n_estimators'   : np.array([20, 40, 60]),
-                    'min_samples_leaf'   : np.array([1, 2, 5]),
+                    'min_samples_leaf'   : np.array([5, 10]),
                     'max_features' : np.array(['sqrt']),
                     'max_depth':np.array([2**2, 2**3, 2**4]),
                     'min_samples_split': np.array([3, 5, 10])}
@@ -122,6 +293,8 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
         model =RandomForestClassifier(**optimal_params, random_state=42, class_weight='balanced')    
     elif isinstance(model, svm.SVC):
         model=svm.SVC(**optimal_params, random_state=42, probability=True, class_weight='balanced')
+    LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42)
+    plt.show()
     #Fitting model with optimised parameters to training data
     model.fit(x_train,y_train)
 
@@ -145,6 +318,14 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
         plt.show(cmatrix)
     time_taken=(time.process_time() - start_time)
     print(f'CPU time for training and testing: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
+
+    # Estimate confidence interval for F1 score
+    start_time = time.process_time()
+    lower, upper, mean, median = bootstrap_confidence_interval(model, x_test, y_test)
+    time_taken=(time.process_time() - start_time)
+    print(f"95% confidence interval for F1 score: ({lower:.3f}, {upper:.3f}, mean: {mean:.3f}, median: {median:.3f})")
+    print(f'CPU time for boostrap: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
+
     return(model, y_pred_test)
 
 def save_model(model_cl, location, y_pred_test, y_test):
