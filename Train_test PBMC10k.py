@@ -13,6 +13,11 @@ from sklearn.cross_decomposition import CCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+import scvi
 
 import Utils as ut
 from importlib import reload
@@ -60,10 +65,134 @@ sample_train, sample_test = ut.perform_cca(sample_train, sample_test, n_componen
 # %% ----------------------------------------------------------------
 # DIMENSIONALITY REDUCTION - PCA
 
-mdata_train, mdata_test, pca = ut.perform_pca(mdata_train, mdata_test)
+mdata_train, mdata_test, pca = ut.perform_pca(mdata_train, mdata_test, raw=False, components = 50)
 # RNA ELBOW = 10 PCS
 # ATAC ELBOW = 12 PCS
+# %% ----------------------------------------------------------------
+# DIMENSIONALITY REDUCTION - AUTOENCODER
 
+# Convert numpy array to torch tensor
+input_data_train = torch.from_numpy(mdata_train['rna'].X).float()
+
+# Specify batch size
+batch_size = 100
+# Assume you have input data X and its dimension is 1000
+input_dim = 3124
+encoding_dim = 32
+n_epochs = 100
+
+# Create DataLoader
+train_data = torch.utils.data.TensorDataset(input_data_train, input_data_train)
+train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+
+class Autoencoder(nn.Module):
+    def __init__(self, input_dim, encoding_dim):
+        super(Autoencoder, self).__init__()
+
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.Sigmoid(),
+            nn.Linear(256, 128),
+            nn.Sigmoid(), 
+            nn.Linear(128, 64), 
+            nn.Sigmoid(), 
+            nn.Linear(64, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+        )
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, encoding_dim),
+            nn.Sigmoid(),
+            nn.Linear(encoding_dim, 64),
+            nn.Sigmoid(),
+            nn.Linear(64, 128),
+            nn.Sigmoid(),
+            nn.Linear(128, 256),
+            nn.Sigmoid(), 
+            nn.Linear(256, input_dim)
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+    
+    def encode(self, x):
+        return self.encoder(x)
+
+
+# Create the autoencoder model
+autoencoder = Autoencoder(input_dim, encoding_dim)
+
+# Set loss function and optimizer
+criterion = nn.MSELoss()
+optimizer = optim.Adam(autoencoder.parameters(), lr=0.001)
+
+# If you have a GPU, you might need to send the data to GPU
+if torch.cuda.is_available():
+    input_data_train = input_data_train.cuda()
+    autoencoder = autoencoder.cuda()
+    print('using GPU')
+
+# Define a list to hold the losses
+losses = []
+
+# Now you can use this tensor as input to your model
+for epoch in range(n_epochs):
+    epoch_loss = 0
+    for batch in train_loader:
+        inputs, _ = batch 
+        output = autoencoder(inputs)
+        loss = criterion(output, inputs)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+    average_epoch_loss = epoch_loss / len(train_loader)
+    print('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, n_epochs, average_epoch_loss))
+    losses.append(average_epoch_loss)
+
+# Extract latent features
+latent_features = autoencoder.encode(input_data_train).detach().cpu().numpy()
+# convert numpy array to pandas dataframe
+latent_features = pd.DataFrame(latent_features)
+
+plt.figure()
+plt.plot(range(n_epochs), losses)
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Loss over time')
+plt.show()
+
+print('Training is finished!')
+
+# %% ----------------------------------------------------------------
+# DIMENSIONALITY REDUCTION - SCVI
+
+mdata_train, mdata_test = ut.scvi_process(mdata_train, mdata_test, epochs=3)
 # %% ----------------------------------------------------------------
 # SAVE PROCESSED DATA
 
@@ -101,51 +230,59 @@ for df, name in zip([mdata_train, mdata_test],['train', 'test']):
 # %% ----------------------------------------------------------------
 # GENERATING LABEL SETS
 
-# Generating labels for training set
+# Generating labels
 y_train = mdata_train.obs['cell_type'].values
-
-# Generating labels for test set
 y_test = mdata_test.obs['cell_type'].values
+
+# Converting to pandas series
+y_train = pd.Series(y_train)
+y_test = pd.Series(y_test)
 
 # CREATING DIFFERENT LABEL SETS
 
 # MAJOR CELL TYPE SET
 # Define your mapping dictionary
-removing_nans = {'Platelets':np.nan, 'Double negative T cell':np.nana}
+adding_nans = {'Platelets':np.nan, 'Double negative T cell':np.nan}
 dict_map = {'CD8 Naive': 'CD8','CD8 Effector':'CD8', 'CD4 Memory': 'CD4', 'CD4 Naive': 'CD4',
             'pre-B cell':'B cell progenitor', 'CD16+ Monocytes':'Monoblast-Derived', 
             'CD14+ Monocytes':'Monoblast-Derived','Dendritic Cells':'Monoblast-Derived',
             'pDC':'Monoblast-Derived'}
-# Create a vectorized function
-vfunc = np.vectorize(lambda x: dict_map.get(x, x))
-rem_nan_func = np.vectorize(lambda x: removing_nans.get(x, x))
-# Apply the vectorized function to your array
-y_train = rem_nan_func(y_train)
-y_test = rem_nan_func(y_test)
-y_train_mjr = vfunc(y_train)
-y_test_mjr = vfunc(y_test)
+
+# Apply the mapping dictionaries to your Series
+y_train_mjr = y_train.replace(dict_map)
+y_test_mjr = y_test.replace(dict_map)
+
+# Remove NaN values again if any were introduced
+y_train_mjr.replace(adding_nans, inplace=True)
+y_test_mjr.replace(adding_nans, inplace=True)
+y_train.replace(adding_nans, inplace=True)
+y_test.replace(adding_nans, inplace=True)
 
 # %% ----------------------------------------------------------------
 # GENERATING FEATURE MATRICES
 
 Xpca_train, Xpca_test, y_train, y_test = ut.generate_feature_matrix(mdata_train, mdata_test, 
                                                    y_train, y_test, 'PCA', 
-                                                   n_components_rna=10, n_components_atac=12)   
+                                                   n_components_rna=25, n_components_atac=25)   
 '''
 Xcca_train, Xcca_test = ut.generate_feature_matrix(mdata_train, mdata_test,
                                                    y_train, y_test, 'CCA',
                                                    n_components_rna=10, n_components_atac=12)
 '''
 # %% ----------------------------------------------------------------
-# SAVE ML MATRICES AS PICKLES
+# SAVE FULL DATA
 
-Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train.pkl")
-Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test.pkl")
-
-# %% ---------------------------------------------------------------- 
-# SAVE LABELS AS NUMPY ARRAYS
+Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_25.pkl")
+Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_25.pkl")
 np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
 np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+# %% ---------------------------------------------------------------- 
+# SAVE MAJOR CELL TYPE DATA
+Xpca_train_mjr, Xpca_test_mjr, y_train_mjr, y_test_mjr = ut.generate_feature_matrix(mdata_train, mdata_test, 
+                                                   y_train_mjr, y_test_mjr, 'PCA', 
+                                                   n_components_rna=10, n_components_atac=12)   
+Xpca_train_mjr.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_mjr.pkl")
+Xpca_test_mjr.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_mjr.pkl")
 np.save("Data/PBMC 10k multiomic/y_train_mjr.npy", y_train_mjr)
 np.save("Data/PBMC 10k multiomic/y_test_mjr.npy", y_test_mjr)
 

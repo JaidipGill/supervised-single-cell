@@ -6,10 +6,11 @@ import h5py as h5
 import pandas as pd
 from muon import atac as ac
 import numpy as np
-import scipy
+import scvi
 from sklearn.cross_decomposition import CCA
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.discriminant_analysis import StandardScaler
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import LearningCurveDisplay, train_test_split
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
@@ -26,6 +27,9 @@ from sklearn.metrics import f1_score, make_scorer
 import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
 import pickle
+import umap
+import seaborn as sns
+import shap
 # %% ----------------------------------------------------------------
 # FUNCTIONS
 
@@ -115,14 +119,17 @@ def pre_process_test(adata, adata_train):
 
     return adata
 
-def perform_pca(mdata_train, mdata_test, components=20, random_state=42):
+def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=42):
     '''
     Perform PCA on RNA and ATAC modalities of given mdata_train and mdata_test
     '''
     pca ={}
     for mod in ['rna', 'atac']:
         st=time.process_time()
-        pca[mod] = PCA(n_components=components, random_state=random_state).fit(mdata_train.mod[mod].X)
+        if raw == False:
+            pca[mod] = PCA(n_components=components, random_state=random_state).fit(mdata_train.mod[mod].X)
+        else:
+            pca[mod] = TruncatedSVD(n_components=components, random_state=random_state).fit(mdata_train.mod[mod].layers['counts'])
 
         # Transform count matrix using pca and store in mdata object
         mdata_train.mod[mod].obsm['X_pca'] = pca[mod].transform(mdata_train.mod[mod].X)
@@ -132,14 +139,17 @@ def perform_pca(mdata_train, mdata_test, components=20, random_state=42):
         print(f"PCA {mod} took {et-st} seconds")
 
         # Scree plot
-        PC_values = np.arange(pca[mod].n_components_) + 1
+        if raw == False:
+            PC_values = np.arange(pca[mod].n_components_) + 1
+        else:
+            PC_values = np.arange(pca[mod].explained_variance_ratio_.shape[0]) + 1
         plt.plot(PC_values, pca[mod].explained_variance_ratio_, 'ro-', linewidth=2)
         plt.title('Scree Plot')
         plt.xlabel('Principal Component')
         plt.ylabel('Proportion of Variance Explained')
         plt.show()
     
-        # Ask user input for desired number of PCs and store it
+        # Ask user input for desired number of PCs and compute cumulative variance explained
         num_pcs = int(input(f"Enter the number of PCs you want to keep for {mod}: "))
         print(f"PCA {mod} with {num_pcs} PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:num_pcs])[-1]*100}% of variance")
 
@@ -180,11 +190,38 @@ def perform_cca(mdata_train, mdata_test, n_components=20):
 
     return mdata_train, mdata_test
 
+
+def scvi_process(mdata_train, mdata_test, epochs):
+    '''
+    Dimensionality reduction using scVI autoencoder
+    '''
+    for mod in ['rna', 'atac']:
+        # Setup the anndata object
+        scvi.model.SCVI.setup_anndata(mdata_train.mod[mod], layer="counts")
+        # Create a mode
+        vae = scvi.model.SCVI(mdata_train.mod[mod])
+        # Train the model
+        vae.train(max_epochs=epochs)
+
+        # Extract the low-dimensional representations
+        mdata_train.mod[mod].obsm["X_scVI"] = vae.get_latent_representation(mdata_train.mod[mod])
+
+        # Transform the test data
+        scvi.model.SCVI.setup_anndata(mdata_test.mod[mod], layer="counts")
+        mdata_test.mod[mod].obsm["X_scVI"] = vae.get_latent_representation(mdata_test.mod[mod])
+
+    return mdata_train, mdata_test
+
 def generate_feature_matrix(mdata_train, mdata_test, y_train, y_test, embedding, n_components_rna, n_components_atac):
+    '''
+    Generates feature matrix and removes NAs for training and test set based on embedding and number of components
+    '''
     if embedding == 'PCA':
         obsm = 'X_pca'
     elif embedding == 'CCA':
         obsm = 'cca'
+    elif embedding == 'scVI':
+        obsm = 'X_scVI'
     # Generating feature matrix for training set
     X_train = np.concatenate((mdata_train.mod['rna'].obsm[obsm][:,:n_components_rna], mdata_train.mod['atac'].obsm[obsm][:,:n_components_atac]), axis=1)
     # Convert to dataframe
@@ -278,6 +315,11 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
     elif isinstance(model, svm.SVC):
         param_grid={'C':[2**0, 2**1, 2**2, 2**3, 2**4, 2**5],
                     'kernel':['poly','rbf', 'sigmoid']}
+    elif isinstance(model, LogisticRegression):
+        param_grid={'penalty':['elasticnet','none'],
+                    'l1_ratio':[0,0.2,0.4,0.6,0.8,1],
+                    'C':[2**0, 2**1, 2**2, 2**3, 2**4, 2**5],
+                    'solver':['saga']}
     inner=ShuffleSplit(n_splits=1,test_size=0.3,random_state=0)
 
     #Inner CV for hyperparameter tuning
@@ -293,6 +335,8 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
         model =RandomForestClassifier(**optimal_params, random_state=42, class_weight='balanced')    
     elif isinstance(model, svm.SVC):
         model=svm.SVC(**optimal_params, random_state=42, probability=True, class_weight='balanced')
+    elif isinstance(model, LogisticRegression):
+        model=LogisticRegression(**optimal_params, random_state=42, class_weight='balanced')
     LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42)
     plt.show()
     #Fitting model with optimised parameters to training data
@@ -344,4 +388,148 @@ def save_model(model_cl, location, y_pred_test, y_test):
     df = pd.DataFrame(
         {"Observed" : y_pred_test,
         "Predictions" : y_test})
-    df.to_pickle(f'Supervised Models\{location}.pickle')
+    df.to_pickle(f'Supervised Models\{location}_Predictions.pickle')
+
+
+def visualise_embeddings(features, labels):
+    '''
+    Visualise embeddings using UMAP
+    '''
+    reducer = umap.UMAP(random_state=42)
+    embedding = reducer.fit_transform(features)
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(
+        x=embedding[:, 0],
+        y=embedding[:, 1],
+        hue=labels,  # Provide your label array here
+        palette=sns.color_palette("Paired", len(np.unique(labels))),  # Choose a color palette
+        legend="full",
+        alpha=0.8
+    )
+    plt.title("UMAP Visualization")
+    plt.show()
+    return embedding
+
+
+def feature_importance(model, X_test, mdata_train):
+
+    '''
+    Explain feature importance for components using SHAP
+    '''
+
+    if isinstance(model, RandomForestClassifier):
+
+        # Create a tree explainer
+        explainer = shap.TreeExplainer(model)
+    elif isinstance(model, LogisticRegression):
+    
+        # Create a linear explainer
+        explainer = shap.LinearExplainer(model, X_test)
+    
+    shap_values = explainer.shap_values(X_test)
+
+    # Visualize the training set predictions
+    shap.summary_plot(shap_values[0], X_test, class_names=model.classes_)
+
+    feat_imp = {}
+    for gene in range(0, mdata_train.mod['rna'].varm['PCs'].shape[0]-1): 
+        feat_imp[gene] = {}
+        for cell in range(0,(len(shap_values)-1)):
+            # Computing feature importance as a function of gene loading and PC SHAP
+            pc_loadings_gene = mdata_train.mod['rna'].varm['PCs'][gene]
+            gene_imp = []
+            for pc in range(0,(shap_values[0].shape[1])-1):
+                pc_loadings_total = np.sum(np.abs(mdata_train.mod['rna'].varm['PCs'][:,pc]))
+                # Normalize PCA loadings for each PC
+                pc_loadings_norm = np.abs(pc_loadings_gene[pc]) / pc_loadings_total
+                # Normalize SHAP values for a class
+                shap_values_pc_norm = np.sum(np.abs(shap_values[cell][pc])) / np.sum(np.abs(shap_values[0]))
+                # Compute feature contributions
+                feature_contributions = pc_loadings_norm * shap_values_pc_norm
+                # Compute feature importances
+                feature_importances = np.sum(feature_contributions)
+                gene_imp.append(feature_importances)
+            feat_imp[gene][cell]=sum(gene_imp)
+        
+    return shap_values, feat_imp
+
+
+def remove_outliers(method, train_features, train_labels, test_features, test_labels, threshold):
+
+    # let's assume df is your DataFrame and 'class' is your class column
+    train_features['label'] = train_labels.tolist()
+    test_features['label'] = test_labels.tolist()
+    df = pd.concat([train_features, test_features], axis=0)
+    print(df.head())
+    # Perform UMAP
+    umap_components = ut.visualise_embeddings(df.drop(['label'],axis=1), df['label'])
+
+    if method == 'LOF':
+        
+        # List to hold outlier indices
+        outlier_indices = []
+
+        # Get unique class labels
+        classes = df['label'].unique()
+
+        # Apply LOF per class
+        for class_label in classes:
+            # Subset df for the current class
+            df_class = df[df['label'] == class_label]
+
+            # Fit the model
+            lof = LocalOutlierFactor(n_neighbors=20)  # Adjust parameters as needed
+            y_pred = lof.fit_predict(df_class.drop(['label'], axis=1))
+
+            # Negative scores represent outliers
+            outlier_scores = -lof.negative_outlier_factor_
+
+            # Consider data points as outliers based on a certain threshold on the LOF scores
+            outliers = outlier_scores > np.percentile(outlier_scores, threshold)  # Here we consider top 5% as outliers
+
+            # Collect indices of outliers
+            outlier_indices.extend(df_class[outliers].index.tolist())
+
+        # Now outlier_indices contains the indices of all within-class outliers
+        # You can use this to filter your DataFrame
+        filtered_df = df.drop(outlier_indices)
+
+    elif method == 'UMAP':
+
+        # Combine UMAP components and labels into a single DataFrame
+        umap_df = pd.DataFrame(umap_components, columns=["UMAP1", "UMAP2"])
+        df = pd.concat([umap_df, df['label'].reset_index(drop=True)], axis=1)
+
+        # Calculate the centroid for each class
+        centroids = df.groupby("label").mean()
+
+        # Initialize an empty list to store the distances
+        distances = []
+
+        # Loop over each class
+        for label in df["label"].unique():
+            # Subset the DataFrame to include only data points from the current class
+            df_class = df[df["label"] == label]
+            
+            # Calculate the distance from each point in this class to the centroid of the class
+            for idx, row in df_class.iterrows():
+                dist = distance.euclidean(row[["UMAP1", "UMAP2"]], centroids.loc[label])
+                distances.append(dist)
+
+        # Add distances to the DataFrame
+        df["distance_to_centroid"] = distances
+
+        # Now, you can consider points with a distance to the centroid above a certain threshold as outliers
+        threshold = df["distance_to_centroid"].quantile(0.95)  # 95th percentile, adjust as needed
+        outliers = df[df["distance_to_centroid"] > threshold]
+        # Create an index of non-outliers
+        non_outliers = df[df["distance_to_centroid"] <= threshold].index
+
+        # Create the filtered dataframe
+        filtered_df = df.loc[non_outliers]
+
+    # Perform new UMAP
+    ut.visualise_embeddings(filtered_df.drop(['label'],axis=1), filtered_df['label'])
+
+    return filtered_df
+    
