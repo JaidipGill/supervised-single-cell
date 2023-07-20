@@ -30,6 +30,9 @@ import pickle
 import umap
 import seaborn as sns
 import shap
+from imblearn.over_sampling import SMOTE
+import plotly.express as px
+from statsmodels.distributions.empirical_distribution import ECDF
 # %% ----------------------------------------------------------------
 # FUNCTIONS
 
@@ -65,14 +68,15 @@ def pre_process_train(adata):
     mu.pp.filter_var(adata, 'n_cells_by_counts', lambda x: x >= 10) 
 
     # Saving raw counts
-    adata.layers["counts"] = adata.X # Store unscaled counts in .layers["counts"] attribute
+    adata.layers["counts"] = adata.X.copy() # Store unscaled counts in .layers["counts"] attribute
 
     # Normalizing peaks/genes
-    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}")
+    print(f"Total peaks/genes in random cell before normalization: {adata.X[1,:].sum()}")
     sc.pp.normalize_total(adata, target_sum=1e4) # Normalize counts per cell
     print(f"Total peaks/genes in random cell (Should be 10000): {adata.X[1,:].sum()}") # Sanity check for normalization - should be 1e4
     sc.pp.log1p(adata) # Logarithmize + 1
     print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}") 
+    print(f"Total peaks/genes in layers['counts']: {adata.layers['counts'][1,:].sum()}") # Sanity check for non-normalized - should be same as before normalization
 
     # Filtering features
     sc.pp.highly_variable_genes(adata) # Select highly variable genes
@@ -101,14 +105,15 @@ def pre_process_test(adata, adata_train):
     print(f"Number of peaks/genes after filtering: {adata.shape[1]}")
 
     # Saving raw counts
-    adata.layers["counts"] = adata.X # Store unscaled counts in .layers["counts"] attribute
+    adata.layers["counts"] = adata.X.copy() # Store unscaled counts in .layers["counts"] attribute
 
     # Normalizing peaks/genes
-    print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}")
+    print(f"Total peaks/genes in random cell before normalization: {adata.X[1,:].sum()}")
     sc.pp.normalize_total(adata, target_sum=1e4) # Normalize counts per cell
     print(f"Total peaks/genes in random cell (Should be 10000): {adata.X[1,:].sum()}") # Sanity check for normalization - should be 1e4
     sc.pp.log1p(adata) # Logarithmize + 1
     print(f"Total peaks/genes in random cell: {adata.X[1,:].sum()}") 
+    print(f"Total peaks/genes in layers['counts']: {adata.layers['counts'][1,:].sum()}") # Sanity check for non-normalized - should be same as before normalization
 
     # Scaling
     adata.raw = adata # Store unscaled counts in .raw attribute
@@ -155,13 +160,13 @@ def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=
 
     return mdata_train, mdata_test, pca
 
-def perform_cca(mdata_train, mdata_test, n_components=20):
+def perform_cca(mdata_train, mdata_test, n_components=50):
     '''
     Performs CCA on the data and adds the CCA components to the mdata object.
     Also generates scree plot of correlation between each CCA component.
     '''
     # Perform CCA
-    cca = CCA(n_components=n_components, scale=False)
+    cca = CCA(n_components=n_components)
     st=time.process_time()
     cca.fit(mdata_train.mod['rna'].X, mdata_train.mod['atac'].X)
     rna_train, atac_train = cca.transform(mdata_train.mod['rna'].X, mdata_train.mod['atac'].X)
@@ -180,12 +185,11 @@ def perform_cca(mdata_train, mdata_test, n_components=20):
     # so we compute them as follows:
     correlations = [np.corrcoef(rna_train[:,i], atac_train[:,i])[0,1] for i in range(rna_train.shape[1])]
 
-    # Plot the square of the canonical correlations
-    eigenvalues = np.square(correlations)
-    plt.plot(range(1, len(eigenvalues) + 1), eigenvalues, 'ro-', linewidth=2)
+    # The canonical correlations
+    plt.plot(range(1, len(correlations) + 1), correlations, 'ro-', linewidth=2)
     plt.title('Scree Plot')
     plt.xlabel('Canonical Variate')
-    plt.ylabel('Squared Canonical Correlation')
+    plt.ylabel('Canonical Correlation')
     plt.show()
 
     return mdata_train, mdata_test
@@ -198,7 +202,7 @@ def scvi_process(mdata_train, mdata_test, epochs):
     for mod in ['rna', 'atac']:
         # Setup the anndata object
         scvi.model.SCVI.setup_anndata(mdata_train.mod[mod], layer="counts")
-        # Create a mode
+        # Create a model
         vae = scvi.model.SCVI(mdata_train.mod[mod])
         # Train the model
         vae.train(max_epochs=epochs)
@@ -346,22 +350,62 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
     y_pred_train = model.predict(x_train)
     #Predicting using fitted model on test set
     y_pred_test = model.predict(x_test)
-
-    #Get results for train and test sets
-    for predictions, observations, features in zip([y_pred_train, y_pred_test],[y_train, y_test],[x_train,x_test]):
-        #De-encoding labels for xgb
-        if isinstance(model,XGBClassifier):
-            predictions = encoder.inverse_transform(predictions)
-            observations = encoder.inverse_transform(observations)
-        #Results Visualisation
-        print(f'{predictions} Set Results:')
-        print(classification_report(observations,predictions))
-        print(f"AUC: {roc_auc_score(observations, model.predict_proba(features), multi_class='ovr')}")
-        plt.rcParams.update({'font.size': 8}) 
-        cmatrix=ConfusionMatrixDisplay.from_predictions(observations, predictions, xticks_rotation='vertical')
-        plt.show(cmatrix)
     time_taken=(time.process_time() - start_time)
     print(f'CPU time for training and testing: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
+    
+    # Get results for train and test sets
+    df_list = []
+    # Create a list to hold the PAC scores
+    pac_list = []
+    for i, (predictions, observations, features) in enumerate(zip([y_pred_train, y_pred_test], [y_train, y_test], [x_train, x_test])):
+        # De-encoding labels for xgb
+        if isinstance(model, XGBClassifier):
+            predictions = encoder.inverse_transform(predictions)
+            observations = encoder.inverse_transform(observations)
+        # Results Visualisation
+        print(f'{predictions} Set Results:')
+        print(classification_report(observations, predictions))
+        proba = model.predict_proba(features)
+        print(f"AUC: {roc_auc_score(observations, proba, multi_class='ovr')}")
+        plt.rcParams.update({'font.size': 8})
+        cmatrix = ConfusionMatrixDisplay.from_predictions(observations, predictions, xticks_rotation='vertical')
+        plt.show(cmatrix)
+
+        # PAP - Percentage Arbitrary Preditions metric
+        # Compute prediction probabilities and create a DataFrame
+        x1 = 0.1
+        x2 = 0.9
+        for j in range(proba.shape[1]):
+            df = pd.DataFrame()
+            df['Probability'] = proba[:, j]
+            df['Class'] = f'Class {model.classes_[j]}'
+            df['Set'] = ["Train", "Test"][i]
+            # Compute the PAC score
+            ecdf = ECDF(proba[:, j])
+            # computing the 10th and 90th percentiles of your data
+            #p10 = np.percentile(proba[:, j], x1)
+            #p90 = np.percentile(proba[:, j], x2)
+
+            # evaluating the ECDF at the 10th and 90th percentiles
+            cdf_x1 = ecdf(x1)
+            cdf_x2 = ecdf(x2)
+
+            # computing the PAP score
+            pac_score = cdf_x2 - cdf_x1
+            # Store the PAP score in the list
+            pac_list.append({'Class': f'{model.classes_[j]}', 'Set': ["Train", "Test"][i], 'PAP': pac_score})
+            df_list.append(df)
+        
+
+    # Convert the list of dictionaries to a DataFrame
+    pac_df = pd.DataFrame(pac_list)
+    # Concatenate all DataFrames
+    df_total = pd.concat(df_list, ignore_index=True)
+
+    # Plot the ECDFs
+    fig = px.ecdf(df_total, x="Probability", color="Class", facet_row="Set")
+    fig.show()
+    print(pac_df)
 
     # Estimate confidence interval for F1 score
     start_time = time.process_time()
@@ -370,7 +414,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
     print(f"95% confidence interval for F1 score: ({lower:.3f}, {upper:.3f}, mean: {mean:.3f}, median: {median:.3f})")
     print(f'CPU time for boostrap: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
 
-    return(model, y_pred_test)
+    return(model, y_pred_test, df_list, pac_df)
 
 def save_model(model_cl, location, y_pred_test, y_test):
     '''
@@ -397,6 +441,21 @@ def visualise_embeddings(features, labels):
     '''
     reducer = umap.UMAP(random_state=42)
     embedding = reducer.fit_transform(features)
+    '''
+    Plot using Plotly
+    df = pd.DataFrame(embedding, columns=['UMAP1', 'UMAP2'])
+    df['labels'] = labels
+
+    fig = px.scatter(df, x='UMAP1', y='UMAP2', color='labels', title="UMAP Visualization")
+     # Customize marker appearance
+    fig.update_traces(marker=dict(opacity=0.8, 
+                                  line=dict(width=0.2,
+                                            color='White')))
+    # Set the width and height of the figure
+    fig.update_layout(autosize=False, width=800, height=600)
+    fig.show()
+    '''
+    # Plot using Seaborn
     plt.figure(figsize=(10, 8))
     sns.scatterplot(
         x=embedding[:, 0],
@@ -414,9 +473,9 @@ def visualise_embeddings(features, labels):
 def feature_importance(model, X_test, mdata_train):
 
     '''
-    Explain feature importance for components using SHAP
+    Explain feature importance for components using SHAP + loading coefficients
+    using a custom metric
     '''
-
     if isinstance(model, RandomForestClassifier):
 
         # Create a tree explainer
@@ -429,16 +488,18 @@ def feature_importance(model, X_test, mdata_train):
     shap_values = explainer.shap_values(X_test)
 
     # Visualize the training set predictions
-    shap.summary_plot(shap_values[0], X_test, class_names=model.classes_)
+    for cell in range(0, len(shap_values)):
+        shap.summary_plot(shap_values[cell], X_test, title=f"Cell {cell} SHAP Summary Plot")
 
+    # Create a dictionary to store feature importances per gene per cell
     feat_imp = {}
-    for gene in range(0, mdata_train.mod['rna'].varm['PCs'].shape[0]-1): 
+    for gene in range(0, mdata_train.mod['rna'].varm['PCs'].shape[0]): 
         feat_imp[gene] = {}
-        for cell in range(0,(len(shap_values)-1)):
+        for cell in range(0,(len(shap_values))):
             # Computing feature importance as a function of gene loading and PC SHAP
             pc_loadings_gene = mdata_train.mod['rna'].varm['PCs'][gene]
             gene_imp = []
-            for pc in range(0,(shap_values[0].shape[1])-1):
+            for pc in range(0,(shap_values[0].shape[1])):
                 pc_loadings_total = np.sum(np.abs(mdata_train.mod['rna'].varm['PCs'][:,pc]))
                 # Normalize PCA loadings for each PC
                 pc_loadings_norm = np.abs(pc_loadings_gene[pc]) / pc_loadings_total
@@ -454,8 +515,37 @@ def feature_importance(model, X_test, mdata_train):
     return shap_values, feat_imp
 
 
+def plot_loading_coefficients(shap_values, mdata_train):
+    '''
+    Function to plot loading coefficients for each PC
+    '''
+    # Extract the PCs
+    pcs = mdata_train.mod['rna'].varm['PCs']
+
+    # Convert to a DataFrame for easier handling
+    pcs_df = pd.DataFrame(pcs, index=mdata_train.mod['rna'].var_names)
+
+    for pc_idx in range(0,(shap_values[0].shape[1])):
+
+        # Get the loadings for the first PC
+        pc_loadings = pcs_df.iloc[:, pc_idx] 
+
+        # Sort the loadings
+        sorted_pc_loadings = pc_loadings.sort_values(ascending=False)
+
+        # Create a bar plot of the loadings
+        plt.figure(figsize=(10,5))
+        sorted_pc_loadings[:20].plot(kind='bar') # you can change the number to show more or fewer genes
+        plt.ylabel('Loading coefficient')
+        plt.title(f'Top contributing genes to PC {pc_idx+1}')
+        plt.xticks(rotation=45)
+        plt.show()
+
 def remove_outliers(method, train_features, train_labels, test_features, test_labels, threshold):
 
+    '''
+    (Not currently used) Function to remove outliers from training and test set
+    '''
     # let's assume df is your DataFrame and 'class' is your class column
     train_features['label'] = train_labels.tolist()
     test_features['label'] = test_labels.tolist()
@@ -533,3 +623,5 @@ def remove_outliers(method, train_features, train_labels, test_features, test_la
 
     return filtered_df
     
+
+# %%

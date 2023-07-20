@@ -61,7 +61,7 @@ mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/pre-proc_mdata
 sample_train = mu.pp.sample_obs(mdata_train,0.1)[:,0:30000]
 sample_test = mu.pp.sample_obs(mdata_test,0.1)[:,0:30000]
 
-sample_train, sample_test = ut.perform_cca(sample_train, sample_test, n_components=20)
+sample_train, sample_test = ut.perform_cca(sample_train, sample_test, n_components=50)
 # %% ----------------------------------------------------------------
 # DIMENSIONALITY REDUCTION - PCA
 
@@ -190,42 +190,58 @@ plt.show()
 print('Training is finished!')
 
 # %% ----------------------------------------------------------------
-# DIMENSIONALITY REDUCTION - SCVI
-
-mdata_train, mdata_test = ut.scvi_process(mdata_train, mdata_test, epochs=3)
-# %% ----------------------------------------------------------------
 # SAVE PROCESSED DATA
 
 mdata_train.write_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_train.h5mu")
 mdata_test.write_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_test.h5mu")
 
 # %% ----------------------------------------------------------------
-# LOAD PROCESSED DATA
+# LOAD DIMENSIONALITY REDUCTION - SCVI
+
+#mdata_train, mdata_test = ut.scvi_process(mdata_train, mdata_test, epochs=1)
+
+mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/scvi_mdata_train_35.h5mu")
+mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/scvi_mdata_test_35.h5mu")
+# %% 
+# LOAD DIMENSIONALITY REDUCTION - PCA
 
 mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_train.h5mu")
 mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_test.h5mu")
+
+# %%
+# LOAD DIMENSIOANLITY REDUCTION - CCA
+
+mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/CCA_mdata_train.h5mu")
+mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/CCA_mdata_test.h5mu")
 # %% ----------------------------------------------------------------
 # ADDING ANNOTATIONS
 
-for df, name in zip([mdata_train, mdata_test],['train', 'test']):
+def add_annon(mdata_train, mdata_test, wnn):
+    for df, name in zip([mdata_train, mdata_test],['train', 'test']):
 
-    # Loading annotations
-    annotations = pd.read_csv('Data\PBMC 10k multiomic\PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
+        # Loading annotations
+        if wnn == False:
+            annotations = pd.read_csv('Data\PBMC 10k multiomic\PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
+        elif wnn == True:
+            annotations = pd.read_csv('Data\PBMC 10k multiomic\WNN-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+        # Take intersection of cell barcodes in annotations and mdata
+        print(annotations)
+        common_barcodes = annotations.index.intersection(df.obs_names)
+        print(annotations.index)
+        # Filter annotations and mdata to keep only common barcodes
+        annotations = annotations.loc[common_barcodes]
+        print(annotations)
+        # Add the annotations to the .obs DataFrame
+        df.obs = pd.concat([df.obs, annotations], axis=1)
+        df.obs.rename(columns={'x': 'cell_type'}, inplace=True)
+        df.mod['rna'].obs['cell_type'] = df.obs['cell_type']
+        df.mod['atac'].obs['cell_type'] = df.obs['cell_type']
 
-    # Take intersection of cell barcodes in annotations and mdata
-    common_barcodes = annotations.index.intersection(df.obs_names)
+        # Count number of NAs in cell_type column
+        print(f"{name} cell_type NAs: {df.obs['cell_type'].isna().sum()}")
+    return mdata_train, mdata_test
 
-    # Filter annotations and mdata to keep only common barcodes
-    annotations = annotations.loc[common_barcodes]
-
-    # Add the annotations to the .obs DataFrame
-    df.obs = pd.concat([df.obs, annotations], axis=1)
-    df.obs.rename(columns={'x': 'cell_type'}, inplace=True)
-    df.mod['rna'].obs['cell_type'] = df.obs['cell_type']
-    df.mod['atac'].obs['cell_type'] = df.obs['cell_type']
-
-    # Count number of NAs in cell_type column
-    print(f"{name} cell_type NAs: {df.obs['cell_type'].isna().sum()}")
+mdata_train, mdata_test = add_annon(mdata_train, mdata_test, wnn = False)
 
 # %% ----------------------------------------------------------------
 # GENERATING LABEL SETS
@@ -242,7 +258,9 @@ y_test = pd.Series(y_test)
 
 # MAJOR CELL TYPE SET
 # Define your mapping dictionary
+
 adding_nans = {'Platelets':np.nan, 'Double negative T cell':np.nan}
+'''
 dict_map = {'CD8 Naive': 'CD8','CD8 Effector':'CD8', 'CD4 Memory': 'CD4', 'CD4 Naive': 'CD4',
             'pre-B cell':'B cell progenitor', 'CD16+ Monocytes':'Monoblast-Derived', 
             'CD14+ Monocytes':'Monoblast-Derived','Dendritic Cells':'Monoblast-Derived',
@@ -251,10 +269,10 @@ dict_map = {'CD8 Naive': 'CD8','CD8 Effector':'CD8', 'CD4 Memory': 'CD4', 'CD4 N
 # Apply the mapping dictionaries to your Series
 y_train_mjr = y_train.replace(dict_map)
 y_test_mjr = y_test.replace(dict_map)
-
+'''
 # Remove NaN values again if any were introduced
-y_train_mjr.replace(adding_nans, inplace=True)
-y_test_mjr.replace(adding_nans, inplace=True)
+#y_train_mjr.replace(adding_nans, inplace=True)
+#y_test_mjr.replace(adding_nans, inplace=True)
 y_train.replace(adding_nans, inplace=True)
 y_test.replace(adding_nans, inplace=True)
 
@@ -263,19 +281,52 @@ y_test.replace(adding_nans, inplace=True)
 
 Xpca_train, Xpca_test, y_train, y_test = ut.generate_feature_matrix(mdata_train, mdata_test, 
                                                    y_train, y_test, 'PCA', 
-                                                   n_components_rna=25, n_components_atac=25)   
-'''
-Xcca_train, Xcca_test = ut.generate_feature_matrix(mdata_train, mdata_test,
+                                                   n_components_rna=35, n_components_atac=35)   
+# %% 
+Xcca_train, Xcca_test, y_train, y_test = ut.generate_feature_matrix(mdata_train, mdata_test,
                                                    y_train, y_test, 'CCA',
-                                                   n_components_rna=10, n_components_atac=12)
-'''
+                                                   n_components_rna=35, n_components_atac=35)
+
+# %% 
+XscVI_train, XscVI_test, y_train, y_test = ut.generate_feature_matrix(mdata_train, mdata_test, 
+                                                   y_train, y_test, 'scVI', 
+                                                   n_components_rna=35, n_components_atac=35) 
 # %% ----------------------------------------------------------------
 # SAVE FULL DATA
 
-Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_25.pkl")
-Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_25.pkl")
-np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
-np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+def save_data(labels, embedding, Xpca_train, Xpca_test, y_train, y_test, XscVI_train, XscVI_test):
+    if embedding == 'PCA' and labels == 'rna':
+        Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35_RAW.pkl")
+        Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35_RAW.pkl")
+        np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+    elif embedding == 'scVI' and labels == 'rna':
+        XscVI_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_35.pkl")
+        XscVI_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_35.pkl")
+        np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+    elif embedding == 'PCA' and labels == 'wnn':
+        Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35_wnn.pkl")
+        Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35_wnn.pkl")
+        np.save("Data/PBMC 10k multiomic/y_train_wnn.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test_wnn.npy", y_test)
+    elif embedding == 'scVI' and labels =='wnn':
+        np.save("Data/PBMC 10k multiomic/y_train_wnn.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test_wnn.npy", y_test)
+        XscVI_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_35_wnn.pkl")
+        XscVI_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_35_wnn.pkl")
+    elif embedding == 'CCA' and labels == 'rna':
+        np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+        Xcca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_train_35.pkl")
+        Xcca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_test_35.pkl")
+    elif embedding == 'CCA' and labels == 'wnn':
+        np.save("Data/PBMC 10k multiomic/y_train_wnn.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test_wnn.npy", y_test)
+        Xcca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_train_35_wnn.pkl")
+        Xcca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_test_35_wnn.pkl")
+save_data('rna', 'CCA', Xpca_train=None, Xpca_test=None, y_train=y_train, y_test=y_test, XscVI_train=None, 
+          XscVI_test=None, Xcca_train=Xcca_train, Xcca_test=Xcca_test)
 # %% ---------------------------------------------------------------- 
 # SAVE MAJOR CELL TYPE DATA
 Xpca_train_mjr, Xpca_test_mjr, y_train_mjr, y_test_mjr = ut.generate_feature_matrix(mdata_train, mdata_test, 
@@ -286,6 +337,86 @@ Xpca_test_mjr.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_
 np.save("Data/PBMC 10k multiomic/y_train_mjr.npy", y_train_mjr)
 np.save("Data/PBMC 10k multiomic/y_test_mjr.npy", y_test_mjr)
 
+# %% ----------------------------------------------------------------
+# WNN CLUSTERING
+
+# Pre-process entire dataset
+mdata.mod['rna'] = ut.pre_process_train(mdata['rna'])
+mdata.mod['atac'] = ut.pre_process_train(mdata['atac'])
+# %%
+# PCA
+sc.tl.pca(mdata.mod['rna'])
+sc.tl.pca(mdata.mod['atac'])
+# %%
+# Calculate weighted nearest neighbors
+sc.pp.neighbors(mdata['rna'])
+sc.pp.neighbors(mdata['atac'])
+mu.pp.neighbors(mdata, key_added='wnn', add_weights_to_modalities = True)
+# %%
+# PLot WNN UMAP
+mdata.uns['wnn']['params']['use_rep']
+mu.tl.umap(mdata, neighbors_key='wnn', random_state=10)
+mu.pl.umap(mdata, color=['rna:mod_weight', 'atac:mod_weight'], cmap='RdBu')
+# %% 
+# Clustering WNN
+sc.tl.leiden(mdata, resolution=1.0, neighbors_key='wnn', key_added='leiden_wnn')
+sc.pl.umap(mdata, color='leiden_wnn', legend_loc='on data')
+sc.pl.violin(mdata, groupby='leiden_wnn', keys='atac:mod_weight')
+# %%
+# Annotations
+mdata.mod['rna'].obs['leiden_wnn']=mdata.obs['leiden_wnn']
+# Differential expression analysis between the identified clusters
+sc.tl.rank_genes_groups(mdata.mod['rna'], 'leiden_wnn', method='wilcoxon')
+result = mdata.mod['rna'].uns['rank_genes_groups']
+groups = result['names'].dtype.names
+pd.set_option('display.max_columns', 50)
+# Create a DataFrame that contains the top 10 genes for each cluster, along with their corresponding p-values. 
+# Each cluster's results are in separate columns. 
+pd.DataFrame(
+    {group + '_' + key[:1]: result[key][group]
+    for group in groups for key in ['names', 'pvals']}).head(10) 
+# %%
+marker_genes = {
+    'CD4+ Naive T': {'TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'},
+    'CD14+ Monocytes': {'S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'},
+    'CD16+ Monocyte': {'CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'},
+    'CD8+ Naive T': {'CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'},
+    'NK cell': {'NKG7', 'KLRD1', 'TYROBP', 'GNLY', 'FCER1G', 'PRF1', 'CD247', 'KLRF1', 'CST7', 'GZMB'},
+    'Dendritic Cells': {'CD74', 'HLA-DPA1', 'HLA-DPB1', 'HLA-DQA1', 'CCDC88A', 'HLA-DRA', 'HLA-DMA', 'CST3', 'HLA-DQB1', 'HLA-DRB1'},
+    'pre-B cell': {'CD10', 'CD22', 'CD34', 'CD38', 'CD48', 'CD79a', 'CD127', 'CD184', 'RAG', 'TdT', 'Vpre-B', 'Pax5', 'EBF'},
+    'CD8+ Effector Memory T': {'CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'},
+    'pDC': {'ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'},
+    'CD4+ Central Memory T': {'IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'}
+} # Marker genes from Azimuth: https://azimuth.hubmapconsortium.org/references/#Human%20-%20PBMC
+sc.tl.marker_gene_overlap(mdata.mod['rna'], marker_genes,method='overlap_count')
+# %%
+# Relabel
+new_cluster_names = {
+    "0": "CD4+ Naive T", "1": "CD8+ Naive T", "2": "CD14+ Monocytes", "3": "CD14+ Monocytes", 
+    "4": "CD4+ Naive T", "5": "CD14+ Monocytes", "6": "CD8+ Effector Memory T", "7": "CD4+ Central Memory T", 
+    "8": "CD4+ Central Memory T", "9": "Dendritic Cells", "10": "Dendritic Cells", 
+    "11": "NK cell", "12": "CD8+ Effector Memory T", "13": "Dendritic Cells", "14": "CD8+ Naive T",
+    "15": "CD14+ Monocytes", "16": "Dendritic Cells", "17": "CD14+ Monocytes", "18": "CD8+ Effector Memory T",
+    "19": "pDC", "20": "pDC", "21": "pDC"
+}
+mdata.mod['rna'].obs['cell_type'] = mdata.mod['rna'].obs.leiden_wnn.astype("str").values
+mdata.mod['rna'].obs.cell_type = mdata.mod['rna'].obs.celltype.replace(new_cluster_names)
+'''
+mdata.mod['rna'].obs.celltype = mdata.mod['rna'].obs.celltype.astype("category")
+mdata.mod['rna'].obs.celltype.cat.reorder_categories([
+    'CD4+ Naive T', 'CD4+ Central Memory T', 'CD8+ Naive T',
+    'CD8+ Effector Memory T', 'NK cell', 'pre-B cell',
+    'CD14+ Monocytes', 'CD16+ Monocyte',
+    'pDC', 'Dendritic Cells','???'])
+'''
+mdata.obs['cell_type']=mdata.mod['rna'].obs['cell_type']
+sc.pl.umap(mdata, color="cell_type", legend_loc="on data")
+# %%
+# Generate alternate annotation txt file
+# Extract index and a column
+df_to_save = mdata.obs.reset_index()[['index', 'cell_type']]
+# Save to a txt file, separator can be specified, here it's a space
+df_to_save.to_csv('Data\PBMC 10k multiomic\WNN-PBMC-10K-celltype.csv', index=True, header=True, sep='\t')
 # %% ----------------------------------------------------------------
 # VISUALISE GROUND TRUTH ANNOTATIONS RNA
 
