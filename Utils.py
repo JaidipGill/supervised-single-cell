@@ -33,6 +33,8 @@ import shap
 from imblearn.over_sampling import SMOTE
 import plotly.express as px
 from statsmodels.distributions.empirical_distribution import ECDF
+from sklearn.metrics import classification_report
+from collections import defaultdict
 # %% ----------------------------------------------------------------
 # FUNCTIONS
 
@@ -124,9 +126,176 @@ def pre_process_test(adata, adata_train):
 
     return adata
 
+def wnn_cluster(mdata):
+    '''
+    Generat ground truth labels for MuData object using Weighted Nearest Neighbours
+    (Seurat V4) which incporates both modalities in clustering
+    '''
+    # Pre-process entire dataset
+    mdata.mod['rna'] = pre_process_train(mdata['rna'])
+    mdata.mod['atac'] = pre_process_train(mdata['atac'])
+    
+    # PCA
+    sc.tl.pca(mdata.mod['rna'])
+    sc.tl.pca(mdata.mod['atac'])
+    
+    # Calculate weighted nearest neighbors
+    sc.pp.neighbors(mdata['rna'])
+    sc.pp.neighbors(mdata['atac'])
+    mu.pp.neighbors(mdata, key_added='wnn', add_weights_to_modalities = True)
+
+    # PLot WNN UMAP
+    mdata.uns['wnn']['params']['use_rep']
+    mu.tl.umap(mdata, neighbors_key='wnn', random_state=10)
+    mu.pl.umap(mdata, color=['rna:mod_weight', 'atac:mod_weight'], cmap='RdBu')
+    
+    # Clustering WNN
+    sc.tl.leiden(mdata, resolution=1.0, neighbors_key='wnn', key_added='leiden_wnn')
+    sc.pl.umap(mdata, color='leiden_wnn', legend_loc='on data')
+    sc.pl.violin(mdata, groupby='leiden_wnn', keys='atac:mod_weight')
+
+def annotate_clusters(mdata, level):    
+    '''
+    Annotate clusters based on marker genes
+    level = 1: Majory cell subtypes
+    level = 2: Minor cell subtypes
+    level = 3: Not complete due to lack of meaning in cell subtypes
+    '''
+    marker_genes_l1 = {
+        'CD4+ Naive T': {'TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'},
+        'CD14+ Monocytes': {'S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'},
+        'CD16+ Monocyte': {'CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'},
+        'CD8+ Naive T': {'CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'},
+        'NK cell': {'NKG7', 'KLRD1', 'TYROBP', 'GNLY', 'FCER1G', 'PRF1', 'CD247', 'KLRF1', 'CST7', 'GZMB'},
+        'Dendritic Cells': {'CD74', 'HLA-DPA1', 'HLA-DPB1', 'HLA-DQA1', 'CCDC88A', 'HLA-DRA', 'HLA-DMA', 'CST3', 'HLA-DQB1', 'HLA-DRB1'},
+        'pre-B cell': {'CD10', 'CD22', 'CD34', 'CD38', 'CD48', 'CD79a', 'CD127', 'CD184', 'RAG', 'TdT', 'Vpre-B', 'Pax5', 'EBF'},
+        'CD8+ Effector Memory T': {'CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'},
+        'pDC': {'ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'},
+        'CD4+ Central Memory T': {'IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'}
+    }
+    marker_genes_l2 = {
+        'B intermediate': ['MS4A1', 'TNFRSF13B', 'IGHM', 'IGHD', 'AIM2', 'CD79A', 'LINC01857', 'RALGPS2', 'BANK1', 'CD79B'],
+        'B memory': ['MS4A1', 'COCH', 'AIM2', 'BANK1', 'SSPN', 'CD79A', 'TEX9', 'RALGPS2', 'TNFRSF13C', 'LINC01781'],
+        'B naive': ['IGHM', 'IGHD', 'CD79A', 'IL4R', 'MS4A1', 'CXCR4', 'BTG1', 'TCL1A', 'CD79B', 'YBX3'],
+        'Plasmablast': ['IGHA2', 'MZB1', 'TNFRSF17', 'DERL3', 'TXNDC5', 'TNFRSF13B', 'POU2AF1', 'CPNE5', 'HRASLS2', 'NT5DC2'],
+        'CD4 CTL': ['GZMH', 'CD4', 'FGFBP2', 'ITGB1', 'GZMA', 'CST7', 'GNLY', 'B2M', 'IL32', 'NKG7'],
+        'CD4 Naive': ['TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'],
+        'CD4 Proliferating': ['MKI67', 'TOP2A', 'PCLAF', 'CENPF', 'TYMS', 'NUSAP1', 'ASPM', 'PTTG1', 'TPX2', 'RRM2'],
+        'CD4 TCM': ['IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'],
+        'CD4 TEM': ['IL7R', 'CCL5', 'FYB1', 'GZMK', 'IL32', 'GZMA', 'KLRB1', 'TRAC', 'LTB', 'AQP3'],
+        'Treg': ['RTKN2', 'FOXP3', 'AC133644.2', 'CD4', 'IL2RA', 'TIGIT', 'CTLA4', 'FCRL3', 'LAIR2', 'IKZF2'],
+        'CD8 Naive': ['CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'],
+        'CD8 Proliferating': ['MKI67', 'CD8B', 'TYMS', 'TRAC', 'PCLAF', 'CD3D', 'CLSPN', 'CD3G', 'TK1', 'RRM2'],
+        'CD8 TCM': ['CD8B', 'ANXA1', 'CD8A', 'KRT1', 'LINC02446', 'YBX3', 'IL7R', 'TRAC', 'NELL2', 'LDHB'],
+        'CD8 TEM': ['CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'],
+        'ASDC': ['PPP1R14A', 'LILRA4', 'AXL', 'IL3RA', 'SCT', 'SCN9A', 'LGMN', 'DNASE1L3', 'CLEC4C', 'GAS6'],
+        'cDC1': ['CLEC9A', 'DNASE1L3', 'C1orf54', 'IDO1', 'CLNK', 'CADM1', 'FLT3', 'ENPP1', 'XCR1', 'NDRG2'],
+        'cDC2': ['FCER1A', 'HLA-DQA1', 'CLEC10A', 'CD1C', 'ENHO', 'PLD4', 'GSN', 'SLC38A1', 'NDRG2', 'AFF3'],
+        'pDC': ['ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'],
+        'CD14 Mono': ['S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'],
+        'CD16 Mono': ['CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'],
+        'NK': ['GNLY', 'TYROBP', 'NKG7', 'FCER1G', 'GZMB', 'TRDC', 'PRF1', 'FGFBP2', 'SPON2', 'KLRF1'],
+        'NK Proliferating': ['MKI67', 'KLRF1', 'TYMS', 'TRDC', 'TOP2A', 'FCER1G', 'PCLAF', 'CD247', 'CLSPN', 'ASPM'],
+        'NK_CD56bright': ['XCL2', 'FCER1G', 'SPINK2', 'TRDC', 'KLRC1', 'XCL1', 'SPTSSB', 'PPP1R9A', 'NCAM1', 'TNFRSF11A'],
+        'Eryth': ['HBD', 'HBM', 'AHSP', 'ALAS2', 'CA1', 'SLC4A1', 'IFIT1B', 'TRIM58', 'SELENBP1', 'TMCC2'],
+        'HSPC':['SPINK2', 'PRSS57', 'CYTL1', 'EGFL7', 'GATA2', 'CD34', 'SMIM24', 'AVP', 'MYB', 'LAPTM4B'],
+        'ILC': ['KIT', 'TRDC', 'TTLL10', 'LINC01229', 'SOX4', 'KLRB1', 'TNFRSF18', 'TNFRSF4', 'IL1R1', 'HPGDS'],
+        'Platelet': ['PPBP', 'PF4', 'NRGN', 'GNG11', 'CAVIN2', 'TUBB1', 'CLU', 'HIST1H2AC', 'RGS18', 'GP9'],
+        'dnT': ['PTPN3', 'MIR4422HG', 'NUCB2', 'CAV1', 'DTHD1', 'GZMA', 'MYB', 'FXYD2', 'GZMK', 'AC004585.1'],
+        'gdT': ['TRDC', 'TRGC1', 'TRGC2', 'KLRC1', 'NKG7', 'TRDV2', 'CD7', 'TRGV9', 'KLRD1', 'KLRG1'],
+        'MAIT': ['KLRB1', 'NKG7', 'GZMK', 'IL7R', 'SLC4A10', 'GZMA', 'CXCR6', 'PRSS35', 'RBM24', 'NCR3']
+        }
+    marker_genes_l3 = {
+        'ASDC_mDC': ['AXL', 'LILRA4', 'SCN9A', 'CLEC4C', 'LTK', 'PPP1R14A', 'LGMN', 'SCT', 'IL3RA', 'GAS6'],
+        'ASDC_pDC' : ['LILRA4', 'CLEC4C', 'SCT', 'EPHB1', 'AXL', 'PROC', 'LRRC26', 'SCN9A', 'LTK', 'DNASE1L3'],
+        'B intermediate lambda' : ['MS4A1', 'IGLC2', 'IGHM', 'CD79A', 'IGLC3', 'IGHD', 'BANK1', 'TNFRSF13C', 'CD22', 'TNFRSF13B'],
+        'B memory kappa' : ['BANK1', 'IGKC', 'LINC01781', 'MS4A1', 'SSPN', 'CD79A', 'RALGPS2', 'TNFRSF13C', 'LINC00926'],
+        'B memory lambda' : ['BANK1', 'IGLC2', 'MS4A1', 'IGLC3', 'COCH', 'TNFRSF13C', 'IGHA2', 'BLK', 'TNFRSF13B', 'LINC01781'],
+        'B naive kappa' : ['IGHM', 'TCL1A', 'IGHD', 'IGHG3', 'CD79A', 'IL4R', 'CD37', 'MS4A1', 'IGKC'],
+        'CD14 Mono' : ['S100A9', 'CTSS', 'LYZ', 'CTSD', 'S100A8', 'VCAN', 'CD14', 'FCN1', 'S100A12', 'MS4A6A'],
+        'CD16 Mono' : ['LST1', 'YBX1', 'AIF1', 'FCGR3A', 'NAP1L1', 'MS4A7', 'FCER1G', 'TCF7L2', 'COTL1', 'CDKN1C'],
+        'CD4 CTL' : ['GZMH', 'CD4', 'GNLY', 'FGFBP2', 'IL7R', 'S100A4', 'GZMA', 'CST7', 'IL32', 'CCL5'],
+        'CD4 Naive' : ['TCF7', 'CD4', 'NUCB2', 'LDHB', 'TRAT1', 'SARAF', 'FHIT', 'LEF1', 'CCR7', 'IL7R'],
+        'CD4 Proliferating' : ['MKI67', 'TYMS', 'PCLAF', 'TOP2A', 'CENPF', 'NUSAP1', 'CENPM', 'BIRC5', 'ZWINT', 'TPX2'],
+        'CD4 TCM_1' : ['LTB', 'CD4', 'FYB1', 'IL7R', 'LIMS1', 'MAL', 'TMSB4X', 'TSHZ2', 'AP3M2', 'TRAC'],
+        'CD4 TCM_2' : [],
+        '' : [],
+        '' : [],
+        '' : [],
+        '' : []
+        }
+    
+    if level == 1:
+        MARKER_GENES = marker_genes_l1
+        CLUSTER_7 = 'CD4+ Central Memory T'
+        FILE = 'L1'
+    elif level == 2:
+        MARKER_GENES = marker_genes_l2
+        CLUSTER_7 = 'CD4 TCM'
+        FILE = 'L2'
+    # Annotations
+    mdata.mod['rna'].obs['leiden_wnn']=mdata.obs['leiden_wnn']
+
+    # Differential expression analysis between the identified clusters
+    sc.tl.rank_genes_groups(mdata.mod['rna'], 'leiden_wnn', method='wilcoxon')
+    result = mdata.mod['rna'].uns['rank_genes_groups']
+    groups = result['names'].dtype.names
+    pd.set_option('display.max_columns', 50)
+
+    # Create a DataFrame that contains the top 10 genes for each cluster, along with their corresponding p-values. 
+    # Each cluster's results are in separate columns. 
+    pd.DataFrame(
+        {group + '_' + key[:1]: result[key][group]
+        for group in groups for key in ['names', 'pvals']}).head(10) 
+
+    # Marker genes from Azimuth: https://azimuth.hubmapconsortium.org/references/#Human%20-%20PBMC
+    markers_df = sc.tl.marker_gene_overlap(mdata.mod['rna'], MARKER_GENES,method='jaccard')
+    print(markers_df)
+    max_index_dict = markers_df.idxmax().to_dict() # Get the column name of the max value per row
+    print(f'Cluster identities: {max_index_dict}')
+
+    # Dictionary to store columns with max value occurring more than once
+    multi_max_cols = {}
+    # Iterate over columns
+    for col in markers_df.columns:
+        # Get the max value in the column
+        max_val = markers_df[col].max()
+        # Find rows with max value
+        max_rows = markers_df[markers_df[col] == max_val]
+        # If max value occurs more than once
+        if len(max_rows) > 1:
+            # Store column name and indices of rows with max value
+            multi_max_cols[col] = max_rows.index.tolist()
+    print(f'Clusters with more than 1 maximum: {multi_max_cols}')
+
+    # Manual Relabel
+    new_cluster_names = max_index_dict.copy()
+    new_cluster_names['7'] = CLUSTER_7
+
+    mdata.mod['rna'].obs['cell_type'] = mdata.mod['rna'].obs.leiden_wnn.astype("str").values
+    mdata.mod['rna'].obs.cell_type = mdata.mod['rna'].obs.cell_type.replace(new_cluster_names)
+    '''
+    mdata.mod['rna'].obs.celltype = mdata.mod['rna'].obs.celltype.astype("category")
+    mdata.mod['rna'].obs.celltype.cat.reorder_categories([
+        'CD4+ Naive T', 'CD4+ Central Memory T', 'CD8+ Naive T',
+        'CD8+ Effector Memory T', 'NK cell', 'pre-B cell',
+        'CD14+ Monocytes', 'CD16+ Monocyte',
+        'pDC', 'Dendritic Cells','???'])
+    '''
+    mdata.obs['cell_type']=mdata.mod['rna'].obs['cell_type']
+    sc.pl.umap(mdata, color="cell_type", legend_loc="on data")
+
+    # Generate alternate annotation txt file
+    # Extract index and a column
+    df_to_save = mdata.obs.reset_index()[['index', 'cell_type']]
+    # Save to a txt file, separator can be specified, here it's a space
+    df_to_save.to_csv(f'Data\PBMC 10k multiomic\WNN{FILE}-PBMC-10K-celltype.csv', index=True, header=True, sep='\t')
+    return
+
 def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=42):
     '''
     Perform PCA on RNA and ATAC modalities of given mdata_train and mdata_test
+    Raw = True: Perform PCA on raw counts using TruncatedSVD
     '''
     pca ={}
     for mod in ['rna', 'atac']:
@@ -195,6 +364,36 @@ def perform_cca(mdata_train, mdata_test, n_components=50):
     return mdata_train, mdata_test
 
 
+def add_annon(mdata_train, mdata_test, wnn):
+    '''
+    Adds annotations to mdata_train and mdata_test based on WNN clustering
+    WNN = 0: RNA labels, WNN = 1: WNN Level 1 labels, WNN = 2: WNN Level 2 labels
+    '''
+    for df, name in zip([mdata_train, mdata_test],['train', 'test']):
+        # Loading annotations
+        if wnn == 0:
+            annotations = pd.read_csv('Data\PBMC 10k multiomic\PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
+        elif wnn == 1:
+            annotations = pd.read_csv('Data\PBMC 10k multiomic\WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+        elif wnn == 2:
+            annotations = pd.read_csv('Data\PBMC 10k multiomic\WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+        # Take intersection of cell barcodes in annotations and mdata
+        print(annotations)
+        common_barcodes = annotations.index.intersection(df.obs_names)
+        print(annotations.index)
+        # Filter annotations and mdata to keep only common barcodes
+        annotations = annotations.loc[common_barcodes]
+        print(annotations)
+        # Add the annotations to the .obs DataFrame
+        df.obs = pd.concat([df.obs, annotations], axis=1)
+        df.obs.rename(columns={'x': 'cell_type'}, inplace=True)
+        df.mod['rna'].obs['cell_type'] = df.obs['cell_type']
+        df.mod['atac'].obs['cell_type'] = df.obs['cell_type']
+
+        # Count number of NAs in cell_type column
+        print(f"{name} cell_type NAs: {df.obs['cell_type'].isna().sum()}")
+    return mdata_train, mdata_test
+
 def scvi_process(mdata_train, mdata_test, epochs):
     '''
     Dimensionality reduction using scVI autoencoder
@@ -219,6 +418,7 @@ def scvi_process(mdata_train, mdata_test, epochs):
 def generate_feature_matrix(mdata_train, mdata_test, y_train, y_test, embedding, n_components_rna, n_components_atac):
     '''
     Generates feature matrix and removes NAs for training and test set based on embedding and number of components
+    Embedding options of PCA, CCA and scVI
     '''
     if embedding == 'PCA':
         obsm = 'X_pca'
@@ -270,36 +470,283 @@ def generate_feature_matrix(mdata_train, mdata_test, y_train, y_test, embedding,
     print(X_test.head())
     print(set(y_train))
     print(set(y_test))
+
+        
+    return X_train, X_test, y_train, y_test
+
+def save_data(labels, embedding, Xpca_train, Xpca_test, y_train, y_test, XscVI_train, XscVI_test, Xcca_train, Xcca_test):
+    if embedding == 'PCA' and labels == 'rna':
+        Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35_RAW.pkl")
+        Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35_RAW.pkl")
+    elif embedding == 'PCA' and (labels == 'wnn' or labels == 'wnnL1' or labels == 'wnnL2'):
+        Xpca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35_wnn.pkl")
+        Xpca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35_wnn.pkl")
+    elif embedding == 'scVI' and labels == 'rna':
+        XscVI_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_35.pkl")
+        XscVI_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_35.pkl")
+    elif embedding == 'scVI' and (labels == 'wnn' or labels == 'wnnL1' or labels == 'wnnL2'):
+        XscVI_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_35_wnn.pkl")
+        XscVI_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_35_wnn.pkl")
+    elif embedding == 'CCA' and labels == 'rna':
+        Xcca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_train_35.pkl")
+        Xcca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_test_35.pkl")
+    elif embedding == 'CCA' and (labels == 'wnn' or labels == 'wnnL1' or labels == 'wnnL2'):
+        Xcca_train.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_train_35_wnn.pkl")
+        Xcca_test.to_pickle("Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_test_35_wnn.pkl")
+    if labels == 'wnnL1':
+        np.save("Data/PBMC 10k multiomic/y_train_wnnL1.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test_wnnL1.npy", y_test)
+    elif labels == 'wnnL2':
+        np.save("Data/PBMC 10k multiomic/y_train_wnnL2.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test_wnnL2.npy", y_test)
+    elif labels == 'rna':
+        np.save("Data/PBMC 10k multiomic/y_train.npy", y_train)
+        np.save("Data/PBMC 10k multiomic/y_test.npy", y_test)
+
+def choose_feature_set(feature_set, labels, n_components, resample):
+    '''
+    Function to choose feature set
+    feature_set
+        PCA Major = PCA with major cell types
+        PCA Minor = PCA with minor cell types
+        scVI = scVI (auto encoder) latent space
+    labels
+        rna = Ground truth from RNA
+        wnnL1 = Ground truth from WNN major cell types
+        wnnL2 = Ground truth from WNN minor cell types
+    n_components = number of components to use from embedding for each modality
+    Resample = True/False for SMOTE oversampling
+    '''
+    if feature_set == 'PCA MINOR':
+        FEAT_PREFIX = 'Xpca'
+    elif feature_set == 'scVI':
+        FEAT_PREFIX = 'XscVI'
+    elif feature_set == 'CCA':
+        FEAT_PREFIX = 'Xcca'
+    if labels == 'rna':
+        LABEL_SUFFIX = ''
+        FEAT_SUFFIX = ''
+    elif labels == 'wnnL1':
+        LABEL_SUFFIX = '_wnnL1'
+        FEAT_SUFFIX = '_wnn'
+    elif labels == 'wnnL2':
+        LABEL_SUFFIX = '_wnnL2'
+        FEAT_SUFFIX = '_wnn'
+    if feature_set == 'PCA MAJOR':
+        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_mjr.pkl')
+        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_mjr.pkl')
+    FEATURES_COMB_TRAIN = pd.read_pickle(f'Data/PBMC 10k multiomic/processed_data/X_Matrices/{FEAT_PREFIX}_train_{n_components}{FEAT_SUFFIX}.pkl')
+    FEATURES_COMB_TEST = pd.read_pickle(f'Data/PBMC 10k multiomic/processed_data/X_Matrices/{FEAT_PREFIX}_test_{n_components}{FEAT_SUFFIX}.pkl') 
+    LABELS_TRAIN = np.load(f'Data/PBMC 10k multiomic/y_train{LABEL_SUFFIX}.npy', allow_pickle=True)
+    LABELS_TEST = np.load(f'Data/PBMC 10k multiomic/y_test{LABEL_SUFFIX}.npy', allow_pickle=True)  
+    if resample == True:
+        smote = SMOTE(random_state=42)
+        FEATURES_COMB_TRAIN, LABELS_TRAIN = smote.fit_resample(FEATURES_COMB_TRAIN, LABELS_TRAIN)
+    return FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST
+
+def remove_cells(GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test):
+    '''
+    Remove low frequency cell types from the training and test set
+    '''
+    cells = []
+    if CELL_TYPE == 'B cells':
+        target_strings = ['B','NK']
+    elif CELL_TYPE == 'T cells':
+        target_strings = ['CD4', 'CD8']
+    elif CELL_TYPE == 'Monoblast-Derived':
+        target_strings = ['Mono', 'DC']
+    elif CELL_TYPE == 'All':
+        target_strings = set(y_train)
+    cells = [s for s in set(y_train) if not any(target_string in s for target_string in target_strings)]
+    if GROUND_TRUTH == 'wnnL2':
+        cells.append('Plasmablast') # list of low freq cells
+        cells.append('dnT')
+    print(cells)
+    # Print initial shapes
+    print(f"Initial shapes of X: {X_train.shape}, {X_test.shape}; and y: {y_train.shape}, {y_test.shape}")
+
+    # Create DataFrame from X_train and X_test
+    train_data = X_train.copy()
+    test_data = X_test.copy()
+
+    # Add y_train and y_test as columns
+    train_data['label'] = y_train
+    test_data['label'] = y_test
+
+    # Removing rows with specfic cell types
+    train_data = train_data.loc[~train_data['label'].isin(cells)]
+    test_data = test_data.loc[~test_data['label'].isin(cells)]
+
+    # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
+    X_train = train_data.iloc[:, :-1]
+    y_train = train_data['label'].to_numpy()
+
+    X_test = test_data.iloc[:, :-1]
+    y_test = test_data['label'].to_numpy()
+
+    # Print new shapes
+    print(f"New shapes of X: {X_train.shape}, {X_test.shape}; and y: {y_train.shape}, {y_test.shape}")
+
     return X_train, X_test, y_train, y_test
 
 def bootstrap_confidence_interval(model, X, y, n_bootstrap=1000):
     """
-    Function to estimate a 95% confidence interval for a model's F1 score using bootstrapping.
+    Function to estimate a 95% confidence interval for a model's F1 score and PAP score using bootstrapping.
     """
-    f1_scores = []
+
+    # Get the classes
+    classes = np.unique(y)
+    f1_scores_per_class = defaultdict(list)
+    f1_scores_overall = []
+    pap_scores_per_class = defaultdict(list)
+
     for _ in range(n_bootstrap):
         X_resample, y_resample = resample(X, y, n_samples=len(X) // 2)
         y_pred = model.predict(X_resample)
-        f1_scores.append(f1_score(y_resample, y_pred, average='macro'))
-    lower = np.percentile(f1_scores, 2.5)
-    upper = np.percentile(f1_scores, 97.5)
-    mean = np.mean(f1_scores)
-    median = np.median(f1_scores)
-    # Plot histogram of F1 scores
-    plt.hist(f1_scores)
-    plt.title("Histogram of F1 scores")
-    plt.xlabel("F1 score")
-    plt.ylabel("Frequency")
+
+        # Compute F1 scores for each class
+        f1_scores = f1_score(y_resample, y_pred, average=None)
+
+        # Compute overall F1 score
+        f1_score_overall = f1_score(y_resample, y_pred, average='macro')
+        f1_scores_overall.append(f1_score_overall)
+
+        # Compute prediction probabilities
+        proba = model.predict_proba(X_resample)
+        # Compute PAP for each class
+        for j in range(proba.shape[1]):
+            # Create an ECDF for this class's prediction probabilities
+            ecdf = ECDF(proba[:, j])
+
+            # Compute PAP score
+            cdf_x1 = ecdf(0.1)
+            cdf_x2 = ecdf(0.9)
+            pap_score = cdf_x2 - cdf_x1
+
+            # Append PAP score for this class
+            pap_scores_per_class[classes[j]].append(pap_score)
+
+        # Append F1 scores for each class
+        for class_, f1_score_ in zip(classes, f1_scores):
+            f1_scores_per_class[class_].append(f1_score_)
+
+    for class_, scores in f1_scores_per_class.items():
+        print(f"Class: {class_}, number of scores: {len(scores)}")
+
+    # Generate dataframes of bootstrap distributions
+    df_f1_bootstrap = pd.DataFrame.from_dict(f1_scores_per_class)
+    df_pap_bootstrap = pd.DataFrame.from_dict(pap_scores_per_class)
+
+    # Initialize lists for DataFrame
+    class_list = []
+    lower_f1_list = []
+    upper_f1_list = []
+    mean_f1_list = []
+    lower_pap_list = []
+    upper_pap_list = []
+    mean_pap_list = []
+    f1_scores_list = []
+    class_scores_list = []
+    pap_scores_list = []
+    class_pap_scores_list = []
+
+    # Compute and print confidence intervals per class
+    for class_ in classes:
+
+        # Compute confidence intervals for metrics
+        lower_f1 = np.percentile(f1_scores_per_class[class_], 2.5)
+        upper_f1 = np.percentile(f1_scores_per_class[class_], 97.5)
+        mean_f1 = np.mean(f1_scores_per_class[class_])
+
+        lower_pap = np.percentile(pap_scores_per_class[class_], 2.5)
+        upper_pap = np.percentile(pap_scores_per_class[class_], 97.5)
+        mean_pap = np.mean(pap_scores_per_class[class_])
+
+        # Add data to lists
+        class_list.append(class_)
+        lower_f1_list.append(lower_f1)
+        upper_f1_list.append(upper_f1)
+        mean_f1_list.append(mean_f1)
+        lower_pap_list.append(lower_pap)
+        upper_pap_list.append(upper_pap)
+        mean_pap_list.append(mean_pap)
+        # Add F1 scores to list
+        f1_scores_list += f1_scores_per_class[class_] # Add F1 scores for this class
+        class_scores_list += [class_] * len(f1_scores_per_class[class_]) # Repeat class name for each F1 score
+        # Add PAP scores to list
+        pap_scores_list += pap_scores_per_class[class_] # Add PAP scores for this class
+        class_pap_scores_list += [class_] * len(pap_scores_per_class[class_]) # Repeat class name for each PAP score
+
+    # Compute and print confidence intervals for overall F1 score
+    lower_f1_overall = np.percentile(f1_scores_overall, 2.5)
+    upper_f1_overall = np.percentile(f1_scores_overall, 97.5)
+    mean_f1_overall = np.mean(f1_scores_overall)
+
+    # Add overall data to lists
+    class_list.append('Overall')
+    lower_f1_list.append(lower_f1_overall)
+    upper_f1_list.append(upper_f1_overall)
+    mean_f1_list.append(mean_f1_overall)
+    lower_pap_list.append(None)
+    upper_pap_list.append(None)
+    mean_pap_list.append(None)
+    # Add overall F1 scores to list
+    f1_scores_list += f1_scores_overall
+    class_scores_list += ['Overall'] * len(f1_scores_overall)
+
+    # Create DataFrame
+    df = pd.DataFrame({
+        'class': class_list,
+        'mean F1 score': mean_f1_list,
+        'lower F1 CI': lower_f1_list,
+        'upper F1 CI': upper_f1_list,
+        'mean PAP score': mean_pap_list,
+        'lower PAP CI': lower_pap_list,
+        'upper PAP CI': upper_pap_list
+    })
+    print(df_f1_bootstrap.head())
+    print(df_pap_bootstrap.head())
+    print(df)
+    
+    # Create DataFrame for visualization
+    df_viz = pd.DataFrame({
+        'F1 score': f1_scores_list,
+        'class': class_scores_list
+    })
+
+    # Plot histogram of F1 scores for each class in a single facet plot
+    g = sns.FacetGrid(df_viz, col="class", col_wrap=5, sharex=False, sharey=True)
+    g.map(plt.hist, "F1 score")
+    g.set_titles("{col_name}")
+    plt.suptitle('Histogram of F1 scores for each class', y=1.02) # Adding a main title above all the subplots
     plt.show()
-    return lower, upper, mean, median
+
+    # Create DataFrame for PAP visualization
+    df_viz_pap = pd.DataFrame({
+        'PAP score': pap_scores_list,
+        'class': class_pap_scores_list
+    })
+
+    # Plot histogram of PAP scores for each class in a single facet plot
+    g_pap = sns.FacetGrid(df_viz_pap, col="class", col_wrap=5, sharex=True, sharey=True)
+    g_pap.map(plt.hist, "PAP score")
+    g_pap.set_titles("{col_name}")
+    plt.suptitle('Histogram of PAP scores for each class', y=1.02) # Adding a main title above all the subplots
+    plt.show()
+
+    return df, df_f1_bootstrap, df_pap_bootstrap
 
 def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=False):
     '''
     Function to test a model on a train and test set
+    Subset = True: Use only 500 samples from train set for quick testing
     '''
     if subset == True:
         x_train = x_train.iloc[:500,:]
         y_train = y_train[:500]
+        cv_splits = 1
+    else:
+        cv_splits = 5
     start_time = time.process_time()
     #Hyperparameter dictionaries
     if  isinstance(model, XGBClassifier):
@@ -324,7 +771,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
                     'l1_ratio':[0,0.2,0.4,0.6,0.8,1],
                     'C':[2**0, 2**1, 2**2, 2**3, 2**4, 2**5],
                     'solver':['saga']}
-    inner=ShuffleSplit(n_splits=1,test_size=0.3,random_state=0)
+    inner=ShuffleSplit(n_splits=cv_splits,test_size=0.3,random_state=0)
 
     #Inner CV for hyperparameter tuning
     f1 = make_scorer(f1_score , average='macro')
@@ -341,8 +788,11 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
         model=svm.SVC(**optimal_params, random_state=42, probability=True, class_weight='balanced')
     elif isinstance(model, LogisticRegression):
         model=LogisticRegression(**optimal_params, random_state=42, class_weight='balanced')
-    LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42)
-    plt.show()
+    #Learning curve
+    if subset == False:
+        LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42, 
+                                            score_type = 'both', n_jobs = -1, scoring = f1, verbose = 4)
+        plt.show()
     #Fitting model with optimised parameters to training data
     model.fit(x_train,y_train)
 
@@ -355,15 +805,15 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
     
     # Get results for train and test sets
     df_list = []
-    # Create a list to hold the PAC scores
-    pac_list = []
+    # Create a list to hold the PAP scores
+    pap_list = []
     for i, (predictions, observations, features) in enumerate(zip([y_pred_train, y_pred_test], [y_train, y_test], [x_train, x_test])):
         # De-encoding labels for xgb
         if isinstance(model, XGBClassifier):
             predictions = encoder.inverse_transform(predictions)
             observations = encoder.inverse_transform(observations)
         # Results Visualisation
-        print(f'{predictions} Set Results:')
+        print(f'{["Train", "Test"][i]} Set Results:')
         print(classification_report(observations, predictions))
         proba = model.predict_proba(features)
         print(f"AUC: {roc_auc_score(observations, proba, multi_class='ovr')}")
@@ -391,32 +841,33 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=
             cdf_x2 = ecdf(x2)
 
             # computing the PAP score
-            pac_score = cdf_x2 - cdf_x1
+            pap_score = cdf_x2 - cdf_x1
             # Store the PAP score in the list
-            pac_list.append({'Class': f'{model.classes_[j]}', 'Set': ["Train", "Test"][i], 'PAP': pac_score})
+            pap_list.append({'Class': f'{model.classes_[j]}', 'Set': ["Train", "Test"][i], 'PAP': pap_score})
             df_list.append(df)
         
 
     # Convert the list of dictionaries to a DataFrame
-    pac_df = pd.DataFrame(pac_list)
+    pap_df = pd.DataFrame(pap_list)
     # Concatenate all DataFrames
     df_total = pd.concat(df_list, ignore_index=True)
 
     # Plot the ECDFs
     fig = px.ecdf(df_total, x="Probability", color="Class", facet_row="Set")
+    # Set the width and height of the figure
+    fig.update_layout(autosize=False, width=800, height=600)
     fig.show()
-    print(pac_df)
 
     # Estimate confidence interval for F1 score
     start_time = time.process_time()
-    lower, upper, mean, median = bootstrap_confidence_interval(model, x_test, y_test)
+    metrics, f1_df, pap_df = bootstrap_confidence_interval(model, x_test, y_test)
     time_taken=(time.process_time() - start_time)
-    print(f"95% confidence interval for F1 score: ({lower:.3f}, {upper:.3f}, mean: {mean:.3f}, median: {median:.3f})")
+    print(f"95% confidence interval for F1 score: ({metrics[metrics['class'] == 'Overall']['lower F1 CI'].values[0]:.3f}, {metrics[metrics['class'] == 'Overall']['upper F1 CI'].values[0]:.3f}, mean: {metrics[metrics['class'] == 'Overall']['mean F1 score'].values[0]:.3f})")
     print(f'CPU time for boostrap: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
 
-    return(model, y_pred_test, df_list, pac_df)
+    return(model, y_pred_test, metrics, f1_df, pap_df)
 
-def save_model(model_cl, location, y_pred_test, y_test):
+def save_model(model_cl, location, y_pred_test, y_test, f1_df, pap_df):
     '''
     Save predictions for model as a csv and change name depending on the model
     '''
@@ -433,6 +884,8 @@ def save_model(model_cl, location, y_pred_test, y_test):
         {"Observed" : y_pred_test,
         "Predictions" : y_test})
     df.to_pickle(f'Supervised Models\{location}_Predictions.pickle')
+    f1_df.to_csv(f'Supervised Models\{location}_F1_df.csv')
+    pap_df.to_csv(f'Supervised Models\{location}_PAP_df.csv')
 
 
 def visualise_embeddings(features, labels):

@@ -26,50 +26,20 @@ from importlib import reload
 
 # %% ----------------------------------------------------------------
 # CHOOSE FEATURE/LABEL SET
+#for cells in ['B cells', 'T cells', 'Monoblast-Derived', 'All']:
+EMBEDDING = 'scVI' # Choose from: PCA, CCA, scVI
+GROUND_TRUTH = 'wnnL2' # Choose from: wnnL2, wnnL1, rna
+CELL_TYPE = 'Monoblast-Derived' # Choose from: B cells, T cells, Monoblast-Derived, All
+N_COMPONENTS = 35   # Choose from: 10, 35
+# %% ----------------------------------------------------------------
+# LOAD PROCESSED DATA
 
-def choose_feature_set(feature_set, labels, resample):
-    '''
-    Function to choose feature set
-    PCA Mijor = PCA with major cell types
-    PCA Minor = PCA with minor cell types
-    scVI = scVI (auto encoder) latent space
-    Resample = True/False for SMOTE oversampling
-    '''
-    if feature_set == 'PCA MAJOR':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_mjr.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_mjr.pkl')
-    elif feature_set == 'PCA MINOR' and labels == 'wnn':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35_wnn.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35_wnn.pkl')
-        LABELS_TRAIN = np.load('Data/PBMC 10k multiomic/y_train_wnn.npy', allow_pickle=True)
-        LABELS_TEST = np.load('Data/PBMC 10k multiomic/y_test_wnn.npy', allow_pickle=True)  
-    elif feature_set == 'PCA MINOR' and labels == 'rna':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_train_35.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xpca_test_35.pkl')
-        LABELS_TRAIN = np.load('Data/PBMC 10k multiomic/y_train.npy', allow_pickle=True)
-        LABELS_TEST = np.load('Data/PBMC 10k multiomic/y_test.npy', allow_pickle=True) 
-    elif feature_set == 'scVI' and labels == 'wnn':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_35_wnn.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_35_wnn.pkl')
-        LABELS_TRAIN = np.load('Data/PBMC 10k multiomic/y_train_wnn.npy', allow_pickle=True)
-        LABELS_TEST = np.load('Data/PBMC 10k multiomic/y_test_wnn.npy', allow_pickle=True)  
-    elif feature_set == 'scVI' and labels == 'rna':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_train_10.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/XscVI_test_10.pkl')
-        LABELS_TRAIN = np.load('Data/PBMC 10k multiomic/y_train.npy', allow_pickle=True)
-        LABELS_TEST = np.load('Data/PBMC 10k multiomic/y_test.npy', allow_pickle=True)    
-    elif feature_set == 'CCA' and labels == 'rna':
-        FEATURES_COMB_TRAIN = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_train_35.pkl')
-        FEATURES_COMB_TEST = pd.read_pickle('Data/PBMC 10k multiomic/processed_data/X_Matrices/Xcca_test_35.pkl')
-        LABELS_TRAIN = np.load('Data/PBMC 10k multiomic/y_train.npy', allow_pickle=True)
-        LABELS_TEST = np.load('Data/PBMC 10k multiomic/y_test.npy', allow_pickle=True)  
-    if resample == True:
-        smote = SMOTE(random_state=42)
-        FEATURES_COMB_TRAIN, LABELS_TRAIN = smote.fit_resample(FEATURES_COMB_TRAIN, LABELS_TRAIN)
-    return FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST
+features_comb_train, features_comb_test, labels_train, labels_test = ut.choose_feature_set(EMBEDDING, GROUND_TRUTH, n_components=N_COMPONENTS, resample = False)
 
-FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = choose_feature_set('scVI', 'rna', resample = False)
+# %% ----------------------------------------------------------------
+# FILTER OUT CELL TYPES
 
+FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = ut.remove_cells(GROUND_TRUTH, CELL_TYPE, features_comb_train, features_comb_test, labels_train, labels_test)
 # %% ----------------------------------------------------------------
 #ML Models
 
@@ -85,48 +55,49 @@ FEATURES_RNA_TRAIN = FEATURES_COMB_TRAIN.filter(like='RNA')
 FEATURES_RNA_TEST = FEATURES_COMB_TEST.filter(like='RNA')
 
 # %% ----------------------------------------------------------------
-# RANDOM FOREST RNA ONLY
-
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(rf,FEATURES_RNA_TRAIN,LABELS_TRAIN,
-                                           FEATURES_RNA_TEST,LABELS_TEST, 
-                                           subset = False)
-ut.save_model(model_cl,'PCA\RF_RNA_only', y_pred_test, LABELS_TEST)
-# %% ----------------------------------------------------------------
-# RANDOM FOREST RNA + ATAC
-
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(rf,FEATURES_COMB_TRAIN,LABELS_TRAIN,
-                                           FEATURES_COMB_TEST,LABELS_TEST, 
-                                           subset = False)
-ut.save_model(model_cl,'PCA\RF', y_pred_test, LABELS_TEST)
-
-# %% ----------------------------------------------------------------
 # SVM RNA ONLY
 
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(svm_model,FEATURES_RNA_TRAIN,LABELS_TRAIN,
-                                           FEATURES_RNA_TEST,LABELS_TEST, 
-                                           subset = False)
-ut.save_model(model_cl,'PCA\SVM_RNA_only', y_pred_test, LABELS_TEST)
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(svm_model,FEATURES_RNA_TRAIN,LABELS_TRAIN,
+                                        FEATURES_RNA_TEST,LABELS_TEST, 
+                                        subset = False)
+ut.save_model(model_cl,f'{EMBEDDING}\SVM_RNA_only_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
 # %% ----------------------------------------------------------------
 # SVM RNA + ATAC
 
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(svm_model,FEATURES_COMB_TRAIN,LABELS_TRAIN,
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(svm_model,FEATURES_COMB_TRAIN,LABELS_TRAIN,
+                                        FEATURES_COMB_TEST,LABELS_TEST, 
+                                        subset = False)
+ut.save_model(model_cl,f'{EMBEDDING}\SVM_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
+
+# %% ----------------------------------------------------------------
+# RANDOM FOREST RNA ONLY
+
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(rf,FEATURES_RNA_TRAIN,LABELS_TRAIN,
+                                           FEATURES_RNA_TEST,LABELS_TEST, 
+                                           subset = False)
+ut.save_model(model_cl,f'{EMBEDDING}\RF_RNA_only_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
+# %% ----------------------------------------------------------------
+# RANDOM FOREST RNA + ATAC
+
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(rf,FEATURES_COMB_TRAIN,LABELS_TRAIN,
                                            FEATURES_COMB_TEST,LABELS_TEST, 
                                            subset = False)
-ut.save_model(model_cl,'PCA\SVM', y_pred_test, LABELS_TEST)
+ut.save_model(model_cl,f'{EMBEDDING}\RF_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
+
 # %% ----------------------------------------------------------------
 # Log Reg RNA ONLY
 
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(log_reg,FEATURES_RNA_TRAIN,LABELS_TRAIN,
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(log_reg,FEATURES_RNA_TRAIN,LABELS_TRAIN,
                                            FEATURES_RNA_TEST,LABELS_TEST, 
                                            subset = False)
-ut.save_model(model_cl,'PCA\LOGREG_RNA_only', y_pred_test, LABELS_TEST)
+ut.save_model(model_cl,f'{EMBEDDING}\LOGREG_RNA_only_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
 # %% ----------------------------------------------------------------
 # Log Reg RNA + ATAC
 
-model_cl, y_pred_test, df_list, pac_df = ut.model_test_main(log_reg,FEATURES_COMB_TRAIN,LABELS_TRAIN,
+model_cl, y_pred_test, metrics, f1_df, pap_df = ut.model_test_main(log_reg,FEATURES_COMB_TRAIN,LABELS_TRAIN,
                                            FEATURES_COMB_TEST,LABELS_TEST, 
                                            subset = False)
-ut.save_model(model_cl,'PCA\LOGREG', y_pred_test, LABELS_TEST)
+ut.save_model(model_cl,f'{EMBEDDING}\LOGREG_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}', y_pred_test, LABELS_TEST, f1_df, pap_df)
 
 # %% ----------------------------------------------------------------
 # VISUALIZE EMBEDDINGS
