@@ -289,7 +289,7 @@ def annotate_clusters(mdata, level):
     # Extract index and a column
     df_to_save = mdata.obs.reset_index()[['index', 'cell_type']]
     # Save to a txt file, separator can be specified, here it's a space
-    df_to_save.to_csv(f'Data\PBMC 10k multiomic\WNN{FILE}-PBMC-10K-celltype.csv', index=True, header=True, sep='\t')
+    df_to_save.to_csv(f'Data/PBMC 10k multiomic/WNN{FILE}-PBMC-10K-celltype.csv', index=True, header=True, sep='\t')
     return
 
 def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=42):
@@ -372,11 +372,11 @@ def add_annon(mdata_train, mdata_test, wnn):
     for df, name in zip([mdata_train, mdata_test],['train', 'test']):
         # Loading annotations
         if wnn == 0:
-            annotations = pd.read_csv('Data\PBMC 10k multiomic\PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
+            annotations = pd.read_csv('Data/PBMC 10k multiomic/PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
         elif wnn == 1:
-            annotations = pd.read_csv('Data\PBMC 10k multiomic\WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+            annotations = pd.read_csv('Data/PBMC 10k multiomic/WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         elif wnn == 2:
-            annotations = pd.read_csv('Data\PBMC 10k multiomic\WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+            annotations = pd.read_csv('Data/PBMC 10k multiomic/WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         # Take intersection of cell barcodes in annotations and mdata
         print(annotations)
         common_barcodes = annotations.index.intersection(df.obs_names)
@@ -878,14 +878,14 @@ def save_model(model_cl, location, y_pred_test, y_test, f1_df, pap_df):
     elif isinstance(model_cl,svm.SVC):
         model_name='svm'
     #Save model
-    pickle.dump(model_cl, open(f'Supervised Models\{location}.pickle', 'wb'))
+    pickle.dump(model_cl, open(f'Supervised Models/{location}.pickle', 'wb'))
     #Save predictions and observations in a pickle file
     df = pd.DataFrame(
         {"Observed" : y_pred_test,
         "Predictions" : y_test})
-    df.to_pickle(f'Supervised Models\{location}_Predictions.pickle')
-    f1_df.to_csv(f'Supervised Models\{location}_F1_df.csv')
-    pap_df.to_csv(f'Supervised Models\{location}_PAP_df.csv')
+    df.to_pickle(f'Supervised Models/{location}_Predictions.pickle')
+    f1_df.to_csv(f'Supervised Models/{location}_F1_df.csv')
+    pap_df.to_csv(f'Supervised Models/{location}_PAP_df.csv')
 
 
 def visualise_embeddings(features, labels):

@@ -79,12 +79,12 @@ def add_annon(mdata, subset, data):
         mdata = mdata[:1000]
 
     if data == 'cancer':
-        annotations_rna = pd.read_csv('Data\B cell lymphoma\Cell Types.csv', header=0, index_col=0)
+        annotations_rna = pd.read_csv('Data/B cell lymphoma/Cell Types.csv', header=0, index_col=0)
         ann_list= [annotations_rna]
     elif data == 'pbmc':
-        annotations_rna = pd.read_csv('Data\PBMC 10k multiomic\PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
-        annotations_wnn1 = pd.read_csv('Data\PBMC 10k multiomic\WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
-        annotations_wnn2 = pd.read_csv('Data\PBMC 10k multiomic\WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+        annotations_rna = pd.read_csv('Data/PBMC 10k multiomic/PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
+        annotations_wnn1 = pd.read_csv('Data/PBMC 10k multiomic/WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
+        annotations_wnn2 = pd.read_csv('Data/PBMC 10k multiomic/WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         ann_list= [annotations_rna, annotations_wnn1, annotations_wnn2]
     for idx, annotations in enumerate(ann_list):
         # Take intersection of cell barcodes in annotations and mdata
