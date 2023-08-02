@@ -74,9 +74,9 @@ for i in range(0,N):
 
     #Generate embedding
     if EMBEDDING == 'PCA':
-        mdata_train, mdata_test, pca = ut.perform_pca(mdata_train, mdata_test, raw=False, components = 35)
-    elif EMBEDDING == 'scVI':
-        mdata_train, mdata_test = ut.scvi_process(mdata_train, mdata_test, epochs=400)
+        mdata_train, mdata_test, pca = ut.perform_pca(mdata_train, mdata_test, raw=False, components = N_COMPONENTS)
+    elif EMBEDDING == 'scVI':  
+        mdata_train, mdata_test = ut.scvi_process(mdata_train, mdata_test, epochs=None, n_latent=N_COMPONENTS)
 
     # Generate labels
     y_train = {}

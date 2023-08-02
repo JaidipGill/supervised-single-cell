@@ -35,6 +35,7 @@ import plotly.express as px
 from statsmodels.distributions.empirical_distribution import ECDF
 from sklearn.metrics import classification_report
 from collections import defaultdict
+import torch
 # %% ----------------------------------------------------------------
 # FUNCTIONS
 
@@ -394,15 +395,20 @@ def add_annon(mdata_train, mdata_test, wnn):
         print(f"{name} cell_type NAs: {df.obs['cell_type'].isna().sum()}")
     return mdata_train, mdata_test
 
-def scvi_process(mdata_train, mdata_test, epochs):
+def scvi_process(mdata_train, mdata_test, epochs, n_latent):
     '''
     Dimensionality reduction using scVI autoencoder
     '''
+    # Set random seed
+    torch.manual_seed(42)
+    np.random.seed(42)
+
+    # Train scVI model
     for mod in ['rna', 'atac']:
         # Setup the anndata object
         scvi.model.SCVI.setup_anndata(mdata_train.mod[mod], layer="counts")
         # Create a model
-        vae = scvi.model.SCVI(mdata_train.mod[mod])
+        vae = scvi.model.SCVI(mdata_train.mod[mod], n_latent=n_latent)
         # Train the model
         vae.train(max_epochs=epochs)
 
@@ -414,6 +420,7 @@ def scvi_process(mdata_train, mdata_test, epochs):
         mdata_test.mod[mod].obsm["X_scVI"] = vae.get_latent_representation(mdata_test.mod[mod])
 
     return mdata_train, mdata_test
+
 
 def generate_feature_matrix(mdata_train, mdata_test, y_train, y_test, embedding, n_components_rna, n_components_atac):
     '''
