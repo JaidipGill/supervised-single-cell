@@ -92,11 +92,6 @@ for i in range(0,N):
     y_train = pd.DataFrame.from_dict(y_train)
     y_test = pd.DataFrame.from_dict(y_test)
 
-    # Standardization
-    sclr = StandardScaler().fit(X_train)
-    X_train = sclr.transform(X_train)
-    X_test = sclr.transform(X_test)
-
     # Generating feature matrix for training set
     X_train = np.concatenate((mdata_train.mod['rna'].obsm[OBSM][:,:N_COMPONENTS], mdata_train.mod['atac'].obsm[OBSM][:,:N_COMPONENTS]), axis=1)
     # Convert to dataframe
@@ -107,6 +102,11 @@ for i in range(0,N):
     X_test = np.concatenate((mdata_test.mod['rna'].obsm[OBSM][:,:N_COMPONENTS], mdata_test.mod['atac'].obsm[OBSM][:,:N_COMPONENTS]), axis=1)
     # Convert to dataframe
     X_test = pd.DataFrame(X_test, columns=[f"RNA Comp{i}" for i in range(1,N_COMPONENTS+1)] + [f"ATAC Comp{i}" for i in range(1,N_COMPONENTS+1)])
+
+    # Standardization
+    sclr = StandardScaler().fit(X_train)
+    X_train = sclr.transform(X_train)
+    X_test = sclr.transform(X_test)
 
     print(X_test.head())
     print(X_train)
