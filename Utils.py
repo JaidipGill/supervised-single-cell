@@ -324,8 +324,8 @@ def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=
         plt.show()
     
         # Ask user input for desired number of PCs and compute cumulative variance explained
-        num_pcs = int(input(f"Enter the number of PCs you want to keep for {mod}: "))
-        print(f"PCA {mod} with {num_pcs} PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:num_pcs])[-1]*100}% of variance")
+        #num_pcs = int(input(f"Enter the number of PCs you want to keep for {mod}: "))
+        #print(f"PCA {mod} with {num_pcs} PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:num_pcs])[-1]*100}% of variance")
 
     return mdata_train, mdata_test, pca
 

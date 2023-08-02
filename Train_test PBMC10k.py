@@ -33,8 +33,14 @@ mdata = ut.wnn_cluster(mdata)
 
 # %%
 # ANNOTATION BY SUBTYPE LEVEL
+
 ut.annotate_clusters(mdata, level=2)
 
+# %% ----------------------------------------------------------------
+# RELOAD DATA
+
+# Loading QC data
+mdata=mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/QC-pbmc10k.h5mu")
 # %% ----------------------------------------------------------------
 # TRAIN-TEST SPLIT
 
