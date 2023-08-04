@@ -33,14 +33,14 @@ log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
 #for cells in ['B cells', 'T cells', 'Monoblast-Derived', 'All']:
 EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'wnnL2' # Choose from: wnnL2, wnnL1, rna
+GROUND_TRUTH = 'wnnL2' # Choose from: wnnL2, wnnL1, rna [rna only for cancer data]
 CELL_TYPE = 'All' # Choose from: B cells, T cells, Monoblast-Derived, All
 N_COMPONENTS = 35   # Choose from: 10, 35
-CL = svm_model # Choose from: xgb, rf, svm_model, log_reg
+CL = rf # Choose from: xgb, rf, svm_model, log_reg
 DATA = 'pbmc' # Choose from: pbmc, cancer
 
 if DATA == 'pbmc':
-    INPUT_ADDRESS = "PBMC 10k multiomic/processed_data/QC-pbmc10k.h5mu"
+    INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
 elif DATA == 'cancer':
     INPUT_ADDRESS = "B cell lymphoma/QC-bcell.h5mu"
 if EMBEDDING == 'PCA':
@@ -49,7 +49,6 @@ elif EMBEDDING == 'CCA':
     OBSM = 'cca'
 elif EMBEDDING == 'scVI':
     OBSM = 'X_scVI'
-SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
 # %% ----------------------------------------------------------------
 # BOOTSTRAP SAMPLES
 
@@ -123,124 +122,128 @@ for i in range(0,N):
 # %% ----------------------------------------------------------------
 # RUN MODELS ON BOOTSTRAP SAMPLES
 
-#for GROUND_TRUTH in ['wnnL2', 'wnnL1', 'rna']:
-#    for CL in [svm_model, rf]:
-# Get the classes
-f1_scores_per_class = defaultdict(list)
-f1_scores_overall = []
-pap_scores_per_class = defaultdict(list)
+for GROUND_TRUTH in ['wnnL2', 'wnnL1', 'rna']:
+    for CL in [svm_model, rf]:
+        # Get the classes
+        SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
+        f1_scores_per_class = defaultdict(list)
+        f1_scores_overall = []
+        pap_scores_per_class = defaultdict(list)
 
-f1_scores_per_class_rna = defaultdict(list)
-f1_scores_overall_rna = []
-pap_scores_per_class_rna = defaultdict(list)
+        f1_scores_per_class_rna = defaultdict(list)
+        f1_scores_overall_rna = []
+        pap_scores_per_class_rna = defaultdict(list)
+        boot_time = time.process_time()
 
-N = 10
-for i in range(0,N):
-    print(f"Bootstrap sample {i}/{N-1}")
-    boot_time = time.process_time()
+        N = 11
+        for i in range(10,N):
+            print(f"Bootstrap sample {i}/{N-1}")
 
-    # Loading features
-    X_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_train_{EMBEDDING}_{i}.pkl')
-    X_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_test_{EMBEDDING}_{i}.pkl')
-    # Load labels
-    y_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_train_{EMBEDDING}_{i}.pkl')
-    y_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_test_{EMBEDDING}_{i}.pkl')
-
-
-    # Pre-process labels and features
-    # Converting to pandas series
-    if GROUND_TRUTH == 'wnnL2':
-        col = '2'
-    elif GROUND_TRUTH == 'wnnL1':
-        col = '1'
-    elif GROUND_TRUTH == 'rna':
-        col = '0'
-    y_train = y_train[col]
-    y_test = y_test[col]
-    # CREATING DIFFERENT LABEL SETS
-    adding_nans = {'Platelets':np.nan, 'Double negative T cell':np.nan}
-    y_train.replace(adding_nans, inplace=True)
-    y_test.replace(adding_nans, inplace=True)
-    # Create DataFrame from X_train and X_test
-    train_data = pd.DataFrame(X_train)
-    test_data = pd.DataFrame(X_test)
-    # Add y_train and y_test as columns
-    train_data['label'] = y_train
-    test_data['label'] = y_test
-    # Removing rows with NaN values
-    train_data = train_data.dropna(subset=['label'])
-    test_data = test_data.dropna(subset=['label'])
-    # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
-    X_train = train_data.iloc[:, :-1]
-    y_train = train_data['label'].to_numpy()
-    X_test = test_data.iloc[:, :-1]
-    y_test = test_data['label'].to_numpy()
-
-    # Filtering cells to specified cell type
-    FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = ut.remove_cells(GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test)
-
-    # RNA ONLY FEATURE SET
-    FEATURES_RNA_TRAIN = FEATURES_COMB_TRAIN.filter(like='RNA')
-    FEATURES_RNA_TEST = FEATURES_COMB_TEST.filter(like='RNA')
-
-    # Get the classes for generating per-class metrics
-    classes = np.unique(LABELS_TRAIN)
-    print(classes)
-
-    # CLASSIFIER RNA ONLY
-    model_cl, y_pred_test, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall = boot.model_test_main(CL, FEATURES_RNA_TRAIN,LABELS_TRAIN,
-                                            FEATURES_RNA_TEST,LABELS_TEST, classes=classes, f1_scores_per_class = f1_scores_per_class,
-                                            f1_scores_overall = f1_scores_overall, pap_scores_per_class = pap_scores_per_class,
-                                            subset = False)
-    
-    # CLASSIFIER RNA + ATAC
-    model_cl, y_pred_test, comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall = boot.model_test_main(CL, FEATURES_COMB_TRAIN,LABELS_TRAIN,
-                                            FEATURES_COMB_TEST,LABELS_TEST, classes=classes, f1_scores_per_class=f1_scores_per_class_rna,
-                                            f1_scores_overall = f1_scores_overall_rna, pap_scores_per_class = pap_scores_per_class_rna,
-                                            subset = False)
+            # Loading features
+            X_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_train_{EMBEDDING}_{i}.pkl')
+            X_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_test_{EMBEDDING}_{i}.pkl')
+            # Load labels
+            y_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_train_{EMBEDDING}_{i}.pkl')
+            y_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_test_{EMBEDDING}_{i}.pkl')
 
 
-# Save pap_scores_per_class and f1_scores_per_class from each model
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_pap_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(comb_pap_scores_per_class, f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(comb_f1_scores_per_class, f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_overall_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(comb_f1_scores_overall, f) 
+            # Pre-process labels and features
+            # Converting to pandas series
+            if GROUND_TRUTH == 'wnnL2':
+                col = '2'
+            elif GROUND_TRUTH == 'wnnL1':
+                col = '1'
+            elif GROUND_TRUTH == 'rna':
+                col = '0'
+            y_train = y_train[col]
+            y_test = y_test[col]
+            # CREATING DIFFERENT LABEL SETS
+            adding_nans = {'Platelets':np.nan, 'Double negative T cell':np.nan}
+            y_train.replace(adding_nans, inplace=True)
+            y_test.replace(adding_nans, inplace=True)
+            # Create DataFrame from X_train and X_test
+            train_data = pd.DataFrame(X_train)
+            test_data = pd.DataFrame(X_test)
+            # Add y_train and y_test as columns
+            train_data['label'] = y_train
+            test_data['label'] = y_test
+            # Removing rows with NaN values
+            train_data = train_data.dropna(subset=['label'])
+            test_data = test_data.dropna(subset=['label'])
+            # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
+            X_train = train_data.iloc[:, :-1]
+            y_train = train_data['label'].to_numpy()
+            X_test = test_data.iloc[:, :-1]
+            y_test = test_data['label'].to_numpy()
 
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_pap_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(rna_pap_scores_per_class, f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(rna_f1_scores_per_class, f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_overall_{SUFFIX}.pkl', 'wb') as f:
-    pickle.dump(rna_f1_scores_overall, f)
+            # Filtering cells to specified cell type
+            FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = ut.remove_cells(GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test)
 
-boot_taken=(time.process_time() - boot_time)
-print(f'CPU time for boostrap ({SUFFIX}): {boot_taken} seconds or {boot_taken/60} mins or {boot_taken/(60*60)} hrs')
+            # RNA ONLY FEATURE SET
+            FEATURES_RNA_TRAIN = FEATURES_COMB_TRAIN.filter(like='RNA')
+            FEATURES_RNA_TEST = FEATURES_COMB_TEST.filter(like='RNA')
+
+            # Get the classes for generating per-class metrics
+            classes = np.unique(LABELS_TRAIN)
+            print(classes)
+
+            # CLASSIFIER RNA ONLY
+            model_cl, y_pred_test, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall = boot.model_test_main(CL, FEATURES_RNA_TRAIN,LABELS_TRAIN,
+                                                    FEATURES_RNA_TEST,LABELS_TEST, classes=classes, f1_scores_per_class = f1_scores_per_class_rna,
+                                                    f1_scores_overall = f1_scores_overall_rna, pap_scores_per_class = pap_scores_per_class_rna,
+                                                    subset = False)
+            
+            # CLASSIFIER RNA + ATAC
+            model_cl, y_pred_test, comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall = boot.model_test_main(CL, FEATURES_COMB_TRAIN,LABELS_TRAIN,
+                                                    FEATURES_COMB_TEST,LABELS_TEST, classes=classes, f1_scores_per_class=f1_scores_per_class,
+                                                    f1_scores_overall = f1_scores_overall, pap_scores_per_class = pap_scores_per_class,
+                                                    subset = False)
+
+        
+        # Save pap_scores_per_class and f1_scores_per_class from each model
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_pap_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(comb_pap_scores_per_class, f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(comb_f1_scores_per_class, f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_overall_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(comb_f1_scores_overall, f) 
+
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_pap_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(rna_pap_scores_per_class, f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(rna_f1_scores_per_class, f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_overall_{SUFFIX}.pkl', 'wb') as f:
+            pickle.dump(rna_f1_scores_overall, f)
+        
+        boot_taken=(time.process_time() - boot_time)
+        print(f'CPU time for boostrap ({SUFFIX}): {boot_taken} seconds or {boot_taken/60} mins or {boot_taken/(60*60)} hrs')
 
 # %% ----------------------------------------------------------------
 # LOAD PAP AND F1 SCORES
 
-# Load pap_scores_per_class and f1_scores_per_class
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_pap_{SUFFIX}.pkl', 'rb') as f:
-    comb_pap_scores_per_class = pickle.load(f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_{SUFFIX}.pkl', 'rb') as f:
-    comb_f1_scores_per_class = pickle.load(f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_overall_{SUFFIX}.pkl', 'rb') as f:
-    comb_f1_scores_overall = pickle.load(f) 
+for GROUND_TRUTH in ['wnnL2', 'wnnL1', 'rna']:
+    for CL in [svm_model, rf]:
+        # Get the classes
+        SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
+        # Load pap_scores_per_class and f1_scores_per_class
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_pap_{SUFFIX}.pkl', 'rb') as f:
+            comb_pap_scores_per_class = pickle.load(f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_{SUFFIX}.pkl', 'rb') as f:
+            comb_f1_scores_per_class = pickle.load(f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_overall_{SUFFIX}.pkl', 'rb') as f:
+            comb_f1_scores_overall = pickle.load(f) 
 
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_pap_{SUFFIX}.pkl', 'rb') as f:
-    rna_pap_scores_per_class = pickle.load(f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_{SUFFIX}.pkl', 'rb') as f:
-    rna_f1_scores_per_class = pickle.load(f)
-with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_overall_{SUFFIX}.pkl', 'rb') as f:
-    rna_f1_scores_overall = pickle.load(f) 
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_pap_{SUFFIX}.pkl', 'rb') as f:
+            rna_pap_scores_per_class = pickle.load(f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_{SUFFIX}.pkl', 'rb') as f:
+            rna_f1_scores_per_class = pickle.load(f)
+        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_overall_{SUFFIX}.pkl', 'rb') as f:
+            rna_f1_scores_overall = pickle.load(f) 
 
-# %% ------------------------------------------------
-# PROCESS METRICS
+        # PROCESS METRICS
+        rna_results = boot.analyse_metrics(rna_f1_scores_per_class, rna_pap_scores_per_class, rna_f1_scores_overall, SUFFIX, rna=True)
+        comb_results = boot.analyse_metrics(comb_f1_scores_per_class, comb_pap_scores_per_class, comb_f1_scores_overall, SUFFIX, rna=False)
 
-rna_results = boot.analyse_metrics(rna_f1_scores_per_class, rna_pap_scores_per_class, rna_f1_scores_overall)
-comb_results = boot.analyse_metrics(comb_f1_scores_per_class, comb_pap_scores_per_class, comb_f1_scores_overall)
 # %%
 # VISUALISE A DATASET
 

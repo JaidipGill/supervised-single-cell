@@ -27,9 +27,9 @@ from importlib import reload
 # %% ----------------------------------------------------------------
 # CHOOSE FEATURE/LABEL SET
 #for cells in ['B cells', 'T cells', 'Monoblast-Derived', 'All']:
-EMBEDDING = 'scVI' # Choose from: PCA, CCA, scVI
+EMBEDDING = 'PCA MINOR' # Choose from: PCA Minor, CCA, scVI
 GROUND_TRUTH = 'wnnL2' # Choose from: wnnL2, wnnL1, rna
-CELL_TYPE = 'Monoblast-Derived' # Choose from: B cells, T cells, Monoblast-Derived, All
+CELL_TYPE = 'All' # Choose from: B cells, T cells, Monoblast-Derived, All
 N_COMPONENTS = 35   # Choose from: 10, 35
 # %% ----------------------------------------------------------------
 # LOAD PROCESSED DATA

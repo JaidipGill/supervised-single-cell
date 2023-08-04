@@ -7,11 +7,11 @@ library(ggsignif)
 
 # Loading Data ------------------------------------------------------------
 
-EMBEDDING <- 'scVI' # Choose from: PCA, CCA, scVI
+EMBEDDING <- 'PCA MINOR' # Choose from: PCA, CCA, scVI
 GROUND_TRUTH <- 'wnnL2' # Choose from: wnnL2, wnnL1, rna
-CELL_TYPE <- 'Monoblast-Derived' # Choose from B Cells, T cells, Monoblast-Derived
+CELL_TYPE <- 'ALL' # Choose from B Cells, T cells, Monoblast-Derived
 N_COMPONENTS <- '35'   # Choose from: 10, 35
-SUPERVISED_MODEL <- 'SVM' # Choose from: SVM, LOGREG, RF
+SUPERVISED_MODEL <- 'RF' # Choose from: SVM, LOGREG, RF
 
 # Read the CSV files
 df_A_metric1 <- read_csv(glue("Supervised Models/{EMBEDDING}/{SUPERVISED_MODEL}_RNA_only_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}_F1_df.csv"))
@@ -28,13 +28,49 @@ df_B_metric1$Model <- 'RNA + ATAC'
 df_B_metric1$Metric <- 'F1 Scores'
 df_B_metric2$Model <- 'RNA + ATAC'
 df_B_metric2$Metric <- 'PAP Scores'
+# 
+# if(CELL_TYPE == 'B Cells') {
+#   col_names <-  c('B intermediate','B naive', 'NK')
+# } else if(CELL_TYPE == 'T Cells') {
+#   col_names <-  c('CD4 Naive', 'CD4 TCM', 'CD4 TEM', 'CD8 Naive', 'CD8 TEM')
+# } else if(CELL_TYPE == 'Monoblast-Derived') {
+#   col_names <-  c('CD14 Mono', 'CD16 Mono', 'cDC2', 'pDC')
+# }
 
-if(CELL_TYPE == 'B Cells') {
-  col_names <-  c('B intermediate','B naive', 'NK')
-} else if(CELL_TYPE == 'T Cells') {
-  col_names <-  c('CD4 Naive', 'CD4 TCM', 'CD4 TEM', 'CD8 Naive', 'CD8 TEM')
-} else if(CELL_TYPE == 'Monoblast-Derived') {
-  col_names <-  c('CD14 Mono', 'CD16 Mono', 'cDC2', 'pDC')
+
+# Plot Results (unnanotated) ----------------------------------------------
+
+# Combine all dataframes
+df_all <- bind_rows(df_A_metric1, df_A_metric2, df_B_metric1, df_B_metric2)
+
+# Assuming 'df' is your data frame
+second_column_index <- 1
+last_two_columns_index <- ncol(df_all) - 1
+# Extract column names
+selected_column_names <- colnames(df_all)[(second_column_index + 1):(last_two_columns_index - 1)]
+# Print the selected column names
+print(selected_column_names)
+
+# Pivot the dataframe to a long format
+df_long <- df_all %>%
+  pivot_longer(cols = selected_column_names,
+               names_to = "Cell Type",
+               values_to = "Value")
+
+# Separate plots for each metric
+for (metric in unique(df_long$Metric)) {
+  # Filter data for the current metric
+  df_metric <- df_long %>% filter(Metric == metric)
+  
+  # Plot
+  p <- ggplot(df_metric, aes(x = Model, y = Value, fill = Model)) +
+    geom_violin(position = "dodge") +
+    geom_boxplot(width = 0.1, position = position_dodge(0.9)) +
+    facet_wrap(~ `Cell Type`) +
+    labs(x = "Model", y = "Value", fill = "Model", title = paste0("Violin plots for ", metric)) +
+    theme_minimal()
+  
+  print(p)
 }
 
 # Statistical Tests -------------------------------------------------------
@@ -80,34 +116,6 @@ adjusted_p_values<- p.adjust(t_test_results, method = "bonferroni")
 
 # Print the results
 print(adjusted_p_values)
-
-
-# Plot Results (unnanotated) ----------------------------------------------
-
-# Combine all dataframes
-df_all <- bind_rows(df_A_metric1, df_A_metric2, df_B_metric1, df_B_metric2)
-
-# Pivot the dataframe to a long format
-df_long <- df_all %>%
-  pivot_longer(cols = col_names,
-               names_to = "Cell Type",
-               values_to = "Value")
-
-# Separate plots for each metric
-for (metric in unique(df_long$Metric)) {
-  # Filter data for the current metric
-  df_metric <- df_long %>% filter(Metric == metric)
-  
-  # Plot
-  p <- ggplot(df_metric, aes(x = Model, y = Value, fill = Model)) +
-    geom_violin(position = "dodge") +
-    geom_boxplot(width = 0.1, position = position_dodge(0.9)) +
-    facet_wrap(~ `Cell Type`) +
-    labs(x = "Model", y = "Value", fill = "Model", title = paste0("Violin plots for ", metric)) +
-    theme_minimal()
-  
-  print(p)
-}
 
 # Plot Results ------------------------------------------------------------
 

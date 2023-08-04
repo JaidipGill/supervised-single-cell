@@ -7,5 +7,13 @@
 /Data/B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5
 /Data/PBMC 10k multiomic/pbmc_filtered.h5
 /Data/B cell lymphoma/QC-bcell.h5mu
+/Data/PBMC 10k multiomic/QC-pbmc10k.h5mu
+/Data/PBMC 10k multiomic/*.pkl
+/Data/B cell lymphoma/*.pkl
+/Data/PBMC 10k multiomic/*npy
 /Lab Notebooks
+/Supervised Models/CCA
+/Supervised Models/scVI
+/Supervised Models/PCA MINOR
+/Supervised Models/PCA
 /__pycache__

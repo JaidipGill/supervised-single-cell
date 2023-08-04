@@ -134,9 +134,9 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
                     'max_depth':np.array([2**2, 2**3, 2**4]),
                     'min_samples_split': np.array([3, 5, 10])}
     elif isinstance(model, svm.SVC):
-        param_grid={'C': [0.01, 0.1, 1, 10],
-                    'kernel':['poly','rbf'],
-                    'gamma': [0.01, 0.1, 1, 10]}
+        param_grid={'C': [0.01, 0.1, 1, 2],
+                    'kernel':['poly'], # RBF only for scVI
+                    'gamma': [0.01, 0.1, 1]}
     elif isinstance(model, LogisticRegression):
         param_grid={'penalty':['elasticnet','none'],
                     'l1_ratio':[0,0.2,0.4,0.6,0.8,1],
@@ -241,7 +241,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
 
     return(model, y_pred_test, pap_scores_per_class, f1_scores_per_class, f1_scores_overall)
 
-def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall):
+def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall, suffix, rna):
     '''
     Analyse metrics from bootstrapping
     - Derives confidence intervals of F1 and PAP scores for each class using
@@ -255,6 +255,12 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
     # Generate dataframes of bootstrap distributions
     df_f1_bootstrap = pd.DataFrame.from_dict(f1_scores_per_class)
     df_pap_bootstrap = pd.DataFrame.from_dict(pap_scores_per_class)
+    if rna == True:
+        df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df_rna.csv')
+        df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df_rna.csv')
+    else:
+        df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df.csv')
+        df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df.csv')
 
     # Initialize lists for DataFrame
     class_list = []
