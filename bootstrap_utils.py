@@ -34,6 +34,7 @@ import plotly.express as px
 from statsmodels.distributions.empirical_distribution import ECDF
 from sklearn.metrics import classification_report
 from collections import defaultdict
+from sklearn.metrics import precision_score, recall_score
 
 import Utils as ut
 from importlib import reload
@@ -70,7 +71,7 @@ def train_test_split_mdata(mdata_obj, seed):
 
     return mdata_train, mdata_test
 
-def add_annon(mdata, subset, data):
+def add_annon(mdata, subset, data, GROUND_TRUTH):
     '''
     Adds annotations to mdata_train and mdata_test based on WNN clustering
     WNN = 0: RNA labels, WNN = 1: WNN Level 1 labels, WNN = 2: WNN Level 2 labels
@@ -79,8 +80,11 @@ def add_annon(mdata, subset, data):
         mdata = mdata[:1000]
 
     if data == 'cancer':
-        annotations_rna = pd.read_csv('Data/B cell lymphoma/Cell Types.csv', header=0, index_col=0)
-        ann_list= [annotations_rna]
+        if GROUND_TRUTH == 'rna':
+            annotations = pd.read_csv('Data/B cell lymphoma/rna Cell Types 1.csv', sep='\t', header=0, index_col=1)
+        elif GROUND_TRUTH == 'wnnL1':
+            annotations= pd.read_csv('Data/B cell lymphoma/wnn Cell Types 1.csv',  sep='\t', header=0, index_col=1)
+        ann_list= [annotations]
     elif data == 'pbmc':
         annotations_rna = pd.read_csv('Data/PBMC 10k multiomic/PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
         annotations_wnn1 = pd.read_csv('Data/PBMC 10k multiomic/WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
@@ -88,25 +92,95 @@ def add_annon(mdata, subset, data):
         ann_list= [annotations_rna, annotations_wnn1, annotations_wnn2]
     for idx, annotations in enumerate(ann_list):
         # Take intersection of cell barcodes in annotations and mdata
-        #print(annotations)
+        print(annotations)
+        if 'cell_type' in annotations.columns:
+            annotations = annotations.rename(columns={'cell_type': 'x'})
         common_barcodes = annotations.index.intersection(mdata.obs_names)
-        #print(annotations.index)
+        print(common_barcodes)
         # Filter annotations and mdata to keep only common barcodes
         annotations = annotations.loc[common_barcodes]
-        #print(annotations)
+        print(annotations)
         # Add the annotations to the .obs DataFrame
         mdata.obs = pd.concat([mdata.obs, annotations], axis=1)
         print(mdata.obs.columns)
         mdata.obs.rename(columns={'x': f'cell_type{idx}'}, inplace=True)
-        print(mdata.obs[f'cell_type{idx}'])
+        #print(mdata.obs[f'cell_type{idx}'])
         mdata.mod['rna'].obs[f'cell_type{idx}'] = mdata.obs[f'cell_type{idx}']
         mdata.mod['atac'].obs[f'cell_type{idx}'] = mdata.obs[f'cell_type{idx}']
 
         # Count number of NAs in cell_type column
         print(f"Cell_type {idx} NAs: {mdata.obs[f'cell_type{idx}'].isna().sum()}")
-    return mdata
 
-def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_scores_per_class, f1_scores_overall, pap_scores_per_class):
+    if data == 'cancer':
+        # Get the cell type annotations
+        cell_types = mdata.obs['cell_type0'].values
+        # Create a Boolean mask to select the cells with the desired cell type
+        mask = (cell_types == 'B cell')|(cell_types == 'Tumour B cell')
+        # Subset the mudata object using the mask
+        subset_mdata = mdata[mask]
+
+    print(subset_mdata)
+
+    return subset_mdata
+
+def load_boot(i, N, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX):
+    '''
+    Load Bootstrap and OOB samples into dataframe for testing
+    '''
+    print(f"Bootstrap sample {i}/{N-1}")
+
+    # Loading features
+    X_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_train_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
+    X_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_test_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
+    # Load labels
+    y_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_train_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
+    y_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_test_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
+    print(y_train)
+
+    if N_COMPONENTS_TO_TEST == 10:
+        X_train.iloc[:, list(range(0, 10)) + list(range(35, 45))]
+        X_test.iloc[:, list(range(0, 10)) + list(range(35, 45))]
+
+    # Pre-process labels and features
+    # Converting to pandas series
+    if DATA == 'pbmc':
+        if GROUND_TRUTH == 'wnnL2':
+            col = '2'
+        elif GROUND_TRUTH == 'wnnL1':
+            col = '1'
+        elif GROUND_TRUTH == 'rna':
+            col = '0'
+    elif DATA == 'cancer':
+        col = '0'
+        noise = np.random.normal(loc=0, scale=0.5, size=X_train.shape)
+        X_train = X_train + noise
+        noise = np.random.normal(loc=0, scale=0.5, size=X_test.shape)
+        X_test = X_test + noise
+    y_train = y_train[col]
+    y_test = y_test[col]
+    # Create DataFrame from X_train and X_test
+    train_data = pd.DataFrame(X_train)
+    test_data = pd.DataFrame(X_test)
+    # Add y_train and y_test as columns
+    train_data['label'] = y_train
+    test_data['label'] = y_test
+    # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
+    X_train = train_data.iloc[:, :-1]
+    y_train = train_data['label'].to_numpy()
+    X_test = test_data.iloc[:, :-1]
+    y_test = test_data['label'].to_numpy()
+
+    # Filtering cells to specified cell type
+    FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = ut.remove_cells(DATA, GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test)
+
+    # RNA ONLY FEATURE SET
+    FEATURES_RNA_TRAIN = FEATURES_COMB_TRAIN.filter(like='RNA')
+    FEATURES_RNA_TEST = FEATURES_COMB_TEST.filter(like='RNA')
+
+    return FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST
+
+def model_test_main(model, outcome, x_train,y_train,x_test,y_test, subset, classes, f1_scores_per_class, f1_scores_overall, pap_scores_per_class, 
+                    precision_scores_per_class, precision_scores_overall, recall_scores_per_class, recall_scores_overall, detailed):
     '''
     Function to test a model on a train and test set
     Subset = True: Use only 500 samples from train set for quick testing
@@ -160,10 +234,10 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
     elif isinstance(model, LogisticRegression):
         model=LogisticRegression(**optimal_params, random_state=42, class_weight='balanced')
     #Learning curve
-    #if subset == False:
-    #    LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42, 
-    #                                        score_type = 'both', n_jobs = -1, scoring = f1, verbose = 4)
-    #    plt.show()
+    if detailed == True:
+        LearningCurveDisplay.from_estimator(model, x_train, y_train, random_state=42, 
+                                            score_type = 'both', n_jobs = -1, scoring = f1, verbose = 4)
+        plt.show()
     #Fitting model with optimised parameters to training data
     model.fit(x_train,y_train)
 
@@ -187,7 +261,10 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
         print(f'{["Train", "Test"][i]} Set Results:')
         print(classification_report(observations, predictions))
         proba = model.predict_proba(features)
-        print(f"AUC: {roc_auc_score(observations, proba, multi_class='ovr')}")
+        if outcome == 'multi':
+            print(f"AUC: {roc_auc_score(observations, proba, multi_class='ovr')}") # AUC for multi-class
+        if outcome == 'binary':
+            print(f"AUC: {roc_auc_score(observations, proba[:,1])}") # AUC for binary
         plt.rcParams.update({'font.size': 8})
         cmatrix = ConfusionMatrixDisplay.from_predictions(observations, predictions, xticks_rotation='vertical')
         plt.show(cmatrix)
@@ -196,10 +273,21 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
 
     # Compute F1 scores for each class
     f1_scores = f1_score(y_test, y_pred_test, average=None)
-
     # Compute overall F1 score
     f1_score_overall = f1_score(y_test, y_pred_test, average='macro')
     f1_scores_overall.append(f1_score_overall)
+
+    # Compute Precision scores for each class
+    precision_scores = precision_score(y_test, y_pred_test, average=None)
+    # Compute overall Precision score
+    precision_score_overall = precision_score(y_test, y_pred_test, average='macro')
+    precision_scores_overall.append(precision_score_overall)
+
+    # Compute Recall scores for each class
+    recall_scores = recall_score(y_test, y_pred_test, average=None)
+    # Compute overall Recall score
+    recall_score_overall = recall_score(y_test, y_pred_test, average='macro')
+    recall_scores_overall.append(recall_score_overall)
 
     # Compute prediction probabilities
     proba = model.predict_proba(x_test)
@@ -216,20 +304,24 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
         # Append PAP score for this class
         pap_scores_per_class[classes[j]].append(pap_score)
 
-    # Append F1 scores for each class
-    for class_, f1_score_ in zip(classes, f1_scores):
-        f1_scores_per_class[class_].append(f1_score_)
+    # Append F1, Precision, and Recall scores for each class
+    for class_, f1, prec, rec in zip(classes, f1_scores, precision_scores, recall_scores):
+        f1_scores_per_class[class_].append(f1)
+        precision_scores_per_class[class_].append(prec)
+        recall_scores_per_class[class_].append(rec)
+    
     '''
-    # Convert the list of dictionaries to a DataFrame
-    pap_df = pd.DataFrame(pap_list)
-    # Concatenate all DataFrames
-    df_total = pd.concat(df_list, ignore_index=True)
+    if detailed == True:
+        # Convert the list of dictionaries to a DataFrame
+        pap_df = pd.DataFrame(pap_list)
+        # Concatenate all DataFrames
+        df_total = pd.concat(df_list, ignore_index=True)
 
-    # Plot the ECDFs
-    fig = px.ecdf(df_total, x="Probability", color="Class", facet_row="Set")
-    # Set the width and height of the figure
-    fig.update_layout(autosize=False, width=800, height=600)
-    fig.show()
+        # Plot the ECDFs
+        fig = px.ecdf(df_total, x="Probability", color="Class", facet_row="Set")
+        # Set the width and height of the figure
+        fig.update_layout(autosize=False, width=800, height=600)
+        fig.show()
     '''
     # Estimate confidence interval for F1 score
     start_time = time.process_time()
@@ -239,7 +331,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset, classes, f1_sco
     #print(f'CPU time for boostrap: {time_taken} seconds or {time_taken/60} mins or {time_taken/(60*60)} hrs')
     print(f1_scores_per_class)
 
-    return(model, y_pred_test, pap_scores_per_class, f1_scores_per_class, f1_scores_overall)
+    return(model, y_pred_test, pap_scores_per_class, f1_scores_per_class, f1_scores_overall, precision_scores_per_class, precision_scores_overall, recall_scores_per_class, recall_scores_overall)
 
 def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall, suffix, rna):
     '''

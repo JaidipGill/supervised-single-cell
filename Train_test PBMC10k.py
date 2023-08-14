@@ -21,23 +21,9 @@ import scvi
 
 import Utils as ut
 from importlib import reload
-# %% ----------------------------------------------------------------
-#LOAD DATA
-
-# Loading QC data
-mdata=mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/QC-pbmc10k.h5mu")
-# %% ----------------------------------------------------------------
-# WNN CLUSTERING
-
-mdata = ut.wnn_cluster(mdata)
-
-# %%
-# ANNOTATION BY SUBTYPE LEVEL
-
-ut.annotate_clusters(mdata, level=2)
 
 # %% ----------------------------------------------------------------
-# RELOAD DATA
+# LOAD DATA
 
 # Loading QC data
 mdata=mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/QC-pbmc10k.h5mu")

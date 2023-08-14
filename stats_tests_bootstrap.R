@@ -7,14 +7,14 @@ library(ggsignif)
 
 # Loading Data ------------------------------------------------------------
 
-EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
+EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI (raw PCA?)
 GROUND_TRUTH = 'wnnL2' # Choose from: wnnL2, wnnL1, rna [rna only for cancer data]
 CELL_TYPE = 'All' # Choose from: B cells, T cells, Monoblast-Derived, All
 N_COMPONENTS = 35   # Choose from: 10, 35
 CL = 'RandomForestClassifier' # Choose from: RandomForestClassifier, SVC, LogisticRegression
 DATA = 'pbmc' # Choose from: pbmc, cancer
 
-for(GROUND_TRUTH in list('wnnL2','wnnL1', 'rna')){
+for(GROUND_TRUTH in list('wnnL2')){
   for (CL in list('RandomForestClassifier', 'SVC')){
     SUFFIX = glue('{DATA}_{CL}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}')
     # Read the CSV files

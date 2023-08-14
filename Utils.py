@@ -36,9 +36,75 @@ from statsmodels.distributions.empirical_distribution import ECDF
 from sklearn.metrics import classification_report
 from collections import defaultdict
 import torch
+from pprint import pprint
+
 # %% ----------------------------------------------------------------
 # FUNCTIONS
 
+
+def quality_control(input_file, output_file, lower_unique_peaks, upper_unique_peaks, lower_total_peaks, upper_total_peaks):
+    '''
+    Quality control of RNA and ATAC components of an mdata object
+    '''
+    mdata = mu.read_10x_h5(input_file)
+    mdata.var_names_make_unique()
+
+    #EDA - GENERAL
+    print(f'''The number of (observations, features) for RNA and ATAC is 
+    {[ad.shape for ad in mdata.mod.values()]}''')
+    sc.pl.highest_expr_genes(mdata['rna'], n_top=20)
+    sc.pl.highest_expr_genes(mdata['atac'], n_top=20)
+
+    #EDA - RNA
+    mdata['rna'].var['mt'] = mdata['rna'].var_names.str.startswith('MT-')  # annotate the group of mitochondrial genes as 'mt'
+
+    #Visualising RNA data
+    sc.pp.calculate_qc_metrics(mdata['rna'], qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
+    sc.pl.violin(mdata['rna'], ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'],
+                jitter=0.4, multi_panel=True)
+    sc.pl.scatter(mdata['rna'], x='total_counts', y='pct_counts_mt')
+    sc.pl.scatter(mdata['rna'], x='total_counts', y='n_genes_by_counts')
+
+    #FILTERING - RNA
+    #Filtering out cells 
+    print(mdata['rna'].n_obs)
+    mu.pp.filter_obs(mdata['rna'], 'n_genes_by_counts', lambda x: (x >= 500) & (x < 5000))
+    print(mdata['rna'].n_obs)
+    #Filtering out cells with more than 15000 counts (e.g. doublets)
+    mu.pp.filter_obs(mdata['rna'], 'total_counts', lambda x: x < 15000)
+    print(mdata['rna'].n_obs)
+    #Filtering out cells with more than 20% mitochondrial genes
+    mu.pp.filter_obs(mdata['rna'], 'pct_counts_mt', lambda x: x < 20)
+    print(mdata['rna'].n_obs)
+
+    #Visualising effects of RNA filtering
+    sc.pp.calculate_qc_metrics(mdata['rna'], qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
+    sc.pl.violin(mdata['rna'], ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'],
+                jitter=0.4, multi_panel=True)
+    sc.pl.scatter(mdata['rna'], x='total_counts', y='pct_counts_mt')
+    sc.pl.scatter(mdata['rna'], x='total_counts', y='n_genes_by_counts')
+
+    # EDA - ATAC
+    sc.pp.calculate_qc_metrics(mdata['atac'], percent_top=None, log1p=False, inplace=True)
+    sc.pl.violin(mdata['atac'], ['total_counts', 'n_genes_by_counts'], jitter=0.4, multi_panel=True)
+    mu.pl.histogram(mdata['atac'], ['n_genes_by_counts', 'total_counts'])
+
+    #FILTERING - ATAC
+    print(mdata['atac'].n_obs)
+    # Filtering out cells with extreme numbers of unique peaks
+    mu.pp.filter_obs(mdata['atac'], 'n_genes_by_counts', lambda x: (x >= lower_unique_peaks) & (x <= upper_unique_peaks))
+    print(mdata['atac'].n_obs)
+    # Filtering out cells with extreme values of total peaks
+    mu.pp.filter_obs(mdata['atac'], 'total_counts', lambda x: (x >= lower_total_peaks) & (x <= upper_total_peaks))
+    print(mdata['atac'].n_obs)
+
+    #Effects of filtering
+    sc.pl.violin(mdata['atac'], ['n_genes_by_counts', 'total_counts'], jitter=0.4, multi_panel=True)
+
+    # Retaining cells that passed QC for RNA and ATAC
+    mu.pp.intersect_obs(mdata)
+    mdata.write(output_file)
+    
 def train_test_split_mdata(mdata_obj):
 
     '''
@@ -132,6 +198,7 @@ def wnn_cluster(mdata):
     Generat ground truth labels for MuData object using Weighted Nearest Neighbours
     (Seurat V4) which incporates both modalities in clustering
     '''
+    
     # Pre-process entire dataset
     mdata.mod['rna'] = pre_process_train(mdata['rna'])
     mdata.mod['atac'] = pre_process_train(mdata['atac'])
@@ -140,9 +207,19 @@ def wnn_cluster(mdata):
     sc.tl.pca(mdata.mod['rna'])
     sc.tl.pca(mdata.mod['atac'])
     
-    # Calculate weighted nearest neighbors
+    # Calculate nearest neighbors in each modality
     sc.pp.neighbors(mdata['rna'])
     sc.pp.neighbors(mdata['atac'])
+    # Plot UMAP using only RNA data
+    sc.tl.umap(mdata['rna'], random_state=10)
+    # Clustering using only RNA data on mdata['rna']
+    sc.tl.leiden(mdata['rna'], resolution=1.0, key_added='leiden_rna')
+    # Transfer leiden_rna labels from mdata['rna'].obs to parent mdata.obs
+    mdata.obs['leiden_rna'] = mdata['rna'].obs['leiden_rna']
+    # Now, plot UMAP on the parent mdata object
+    sc.pl.umap(mdata['rna'], color='leiden_rna', legend_loc='on data')
+
+    # WNN Neighbourhood graph
     mu.pp.neighbors(mdata, key_added='wnn', add_weights_to_modalities = True)
 
     # PLot WNN UMAP
@@ -155,90 +232,102 @@ def wnn_cluster(mdata):
     sc.pl.umap(mdata, color='leiden_wnn', legend_loc='on data')
     sc.pl.violin(mdata, groupby='leiden_wnn', keys='atac:mod_weight')
 
-def annotate_clusters(mdata, level):    
+    return mdata
+
+def annotate_clusters(DATA, mdata, level, modality):    
     '''
     Annotate clusters based on marker genes
-    level = 1: Majory cell subtypes
-    level = 2: Minor cell subtypes
-    level = 3: Not complete due to lack of meaning in cell subtypes
+    level argument used with DATA = 'pbmc':
+        level = 1: Major cell subtypes (PBMC = 10 cell types, Cancer = 2 cell types)
+        level = 2: Minor cell subtypes (PBMC = 30 cell types, Cancer = >2 cell types)
     '''
-    marker_genes_l1 = {
-        'CD4+ Naive T': {'TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'},
-        'CD14+ Monocytes': {'S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'},
-        'CD16+ Monocyte': {'CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'},
-        'CD8+ Naive T': {'CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'},
-        'NK cell': {'NKG7', 'KLRD1', 'TYROBP', 'GNLY', 'FCER1G', 'PRF1', 'CD247', 'KLRF1', 'CST7', 'GZMB'},
-        'Dendritic Cells': {'CD74', 'HLA-DPA1', 'HLA-DPB1', 'HLA-DQA1', 'CCDC88A', 'HLA-DRA', 'HLA-DMA', 'CST3', 'HLA-DQB1', 'HLA-DRB1'},
-        'pre-B cell': {'CD10', 'CD22', 'CD34', 'CD38', 'CD48', 'CD79a', 'CD127', 'CD184', 'RAG', 'TdT', 'Vpre-B', 'Pax5', 'EBF'},
-        'CD8+ Effector Memory T': {'CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'},
-        'pDC': {'ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'},
-        'CD4+ Central Memory T': {'IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'}
-    }
-    marker_genes_l2 = {
-        'B intermediate': ['MS4A1', 'TNFRSF13B', 'IGHM', 'IGHD', 'AIM2', 'CD79A', 'LINC01857', 'RALGPS2', 'BANK1', 'CD79B'],
-        'B memory': ['MS4A1', 'COCH', 'AIM2', 'BANK1', 'SSPN', 'CD79A', 'TEX9', 'RALGPS2', 'TNFRSF13C', 'LINC01781'],
-        'B naive': ['IGHM', 'IGHD', 'CD79A', 'IL4R', 'MS4A1', 'CXCR4', 'BTG1', 'TCL1A', 'CD79B', 'YBX3'],
-        'Plasmablast': ['IGHA2', 'MZB1', 'TNFRSF17', 'DERL3', 'TXNDC5', 'TNFRSF13B', 'POU2AF1', 'CPNE5', 'HRASLS2', 'NT5DC2'],
-        'CD4 CTL': ['GZMH', 'CD4', 'FGFBP2', 'ITGB1', 'GZMA', 'CST7', 'GNLY', 'B2M', 'IL32', 'NKG7'],
-        'CD4 Naive': ['TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'],
-        'CD4 Proliferating': ['MKI67', 'TOP2A', 'PCLAF', 'CENPF', 'TYMS', 'NUSAP1', 'ASPM', 'PTTG1', 'TPX2', 'RRM2'],
-        'CD4 TCM': ['IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'],
-        'CD4 TEM': ['IL7R', 'CCL5', 'FYB1', 'GZMK', 'IL32', 'GZMA', 'KLRB1', 'TRAC', 'LTB', 'AQP3'],
-        'Treg': ['RTKN2', 'FOXP3', 'AC133644.2', 'CD4', 'IL2RA', 'TIGIT', 'CTLA4', 'FCRL3', 'LAIR2', 'IKZF2'],
-        'CD8 Naive': ['CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'],
-        'CD8 Proliferating': ['MKI67', 'CD8B', 'TYMS', 'TRAC', 'PCLAF', 'CD3D', 'CLSPN', 'CD3G', 'TK1', 'RRM2'],
-        'CD8 TCM': ['CD8B', 'ANXA1', 'CD8A', 'KRT1', 'LINC02446', 'YBX3', 'IL7R', 'TRAC', 'NELL2', 'LDHB'],
-        'CD8 TEM': ['CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'],
-        'ASDC': ['PPP1R14A', 'LILRA4', 'AXL', 'IL3RA', 'SCT', 'SCN9A', 'LGMN', 'DNASE1L3', 'CLEC4C', 'GAS6'],
-        'cDC1': ['CLEC9A', 'DNASE1L3', 'C1orf54', 'IDO1', 'CLNK', 'CADM1', 'FLT3', 'ENPP1', 'XCR1', 'NDRG2'],
-        'cDC2': ['FCER1A', 'HLA-DQA1', 'CLEC10A', 'CD1C', 'ENHO', 'PLD4', 'GSN', 'SLC38A1', 'NDRG2', 'AFF3'],
-        'pDC': ['ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'],
-        'CD14 Mono': ['S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'],
-        'CD16 Mono': ['CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'],
-        'NK': ['GNLY', 'TYROBP', 'NKG7', 'FCER1G', 'GZMB', 'TRDC', 'PRF1', 'FGFBP2', 'SPON2', 'KLRF1'],
-        'NK Proliferating': ['MKI67', 'KLRF1', 'TYMS', 'TRDC', 'TOP2A', 'FCER1G', 'PCLAF', 'CD247', 'CLSPN', 'ASPM'],
-        'NK_CD56bright': ['XCL2', 'FCER1G', 'SPINK2', 'TRDC', 'KLRC1', 'XCL1', 'SPTSSB', 'PPP1R9A', 'NCAM1', 'TNFRSF11A'],
-        'Eryth': ['HBD', 'HBM', 'AHSP', 'ALAS2', 'CA1', 'SLC4A1', 'IFIT1B', 'TRIM58', 'SELENBP1', 'TMCC2'],
-        'HSPC':['SPINK2', 'PRSS57', 'CYTL1', 'EGFL7', 'GATA2', 'CD34', 'SMIM24', 'AVP', 'MYB', 'LAPTM4B'],
-        'ILC': ['KIT', 'TRDC', 'TTLL10', 'LINC01229', 'SOX4', 'KLRB1', 'TNFRSF18', 'TNFRSF4', 'IL1R1', 'HPGDS'],
-        'Platelet': ['PPBP', 'PF4', 'NRGN', 'GNG11', 'CAVIN2', 'TUBB1', 'CLU', 'HIST1H2AC', 'RGS18', 'GP9'],
-        'dnT': ['PTPN3', 'MIR4422HG', 'NUCB2', 'CAV1', 'DTHD1', 'GZMA', 'MYB', 'FXYD2', 'GZMK', 'AC004585.1'],
-        'gdT': ['TRDC', 'TRGC1', 'TRGC2', 'KLRC1', 'NKG7', 'TRDV2', 'CD7', 'TRGV9', 'KLRD1', 'KLRG1'],
-        'MAIT': ['KLRB1', 'NKG7', 'GZMK', 'IL7R', 'SLC4A10', 'GZMA', 'CXCR6', 'PRSS35', 'RBM24', 'NCR3']
+    if DATA == 'pbmc':
+        # Marker genes from Azimuth: https://azimuth.hubmapconsortium.org/references/#Human%20-%20PBMC
+        marker_genes_l1 = {
+            'CD4+ Naive T': {'TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'},
+            'CD14+ Monocytes': {'S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'},
+            'CD16+ Monocyte': {'CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'},
+            'CD8+ Naive T': {'CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'},
+            'NK cell': {'NKG7', 'KLRD1', 'TYROBP', 'GNLY', 'FCER1G', 'PRF1', 'CD247', 'KLRF1', 'CST7', 'GZMB'},
+            'Dendritic Cells': {'CD74', 'HLA-DPA1', 'HLA-DPB1', 'HLA-DQA1', 'CCDC88A', 'HLA-DRA', 'HLA-DMA', 'CST3', 'HLA-DQB1', 'HLA-DRB1'},
+            'pre-B cell': {'CD10', 'CD22', 'CD34', 'CD38', 'CD48', 'CD79a', 'CD127', 'CD184', 'RAG', 'TdT', 'Vpre-B', 'Pax5', 'EBF'},
+            'CD8+ Effector Memory T': {'CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'},
+            'pDC': {'ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'},
+            'CD4+ Central Memory T': {'IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'}
         }
-    marker_genes_l3 = {
-        'ASDC_mDC': ['AXL', 'LILRA4', 'SCN9A', 'CLEC4C', 'LTK', 'PPP1R14A', 'LGMN', 'SCT', 'IL3RA', 'GAS6'],
-        'ASDC_pDC' : ['LILRA4', 'CLEC4C', 'SCT', 'EPHB1', 'AXL', 'PROC', 'LRRC26', 'SCN9A', 'LTK', 'DNASE1L3'],
-        'B intermediate lambda' : ['MS4A1', 'IGLC2', 'IGHM', 'CD79A', 'IGLC3', 'IGHD', 'BANK1', 'TNFRSF13C', 'CD22', 'TNFRSF13B'],
-        'B memory kappa' : ['BANK1', 'IGKC', 'LINC01781', 'MS4A1', 'SSPN', 'CD79A', 'RALGPS2', 'TNFRSF13C', 'LINC00926'],
-        'B memory lambda' : ['BANK1', 'IGLC2', 'MS4A1', 'IGLC3', 'COCH', 'TNFRSF13C', 'IGHA2', 'BLK', 'TNFRSF13B', 'LINC01781'],
-        'B naive kappa' : ['IGHM', 'TCL1A', 'IGHD', 'IGHG3', 'CD79A', 'IL4R', 'CD37', 'MS4A1', 'IGKC'],
-        'CD14 Mono' : ['S100A9', 'CTSS', 'LYZ', 'CTSD', 'S100A8', 'VCAN', 'CD14', 'FCN1', 'S100A12', 'MS4A6A'],
-        'CD16 Mono' : ['LST1', 'YBX1', 'AIF1', 'FCGR3A', 'NAP1L1', 'MS4A7', 'FCER1G', 'TCF7L2', 'COTL1', 'CDKN1C'],
-        'CD4 CTL' : ['GZMH', 'CD4', 'GNLY', 'FGFBP2', 'IL7R', 'S100A4', 'GZMA', 'CST7', 'IL32', 'CCL5'],
-        'CD4 Naive' : ['TCF7', 'CD4', 'NUCB2', 'LDHB', 'TRAT1', 'SARAF', 'FHIT', 'LEF1', 'CCR7', 'IL7R'],
-        'CD4 Proliferating' : ['MKI67', 'TYMS', 'PCLAF', 'TOP2A', 'CENPF', 'NUSAP1', 'CENPM', 'BIRC5', 'ZWINT', 'TPX2'],
-        'CD4 TCM_1' : ['LTB', 'CD4', 'FYB1', 'IL7R', 'LIMS1', 'MAL', 'TMSB4X', 'TSHZ2', 'AP3M2', 'TRAC'],
-        'CD4 TCM_2' : [],
-        '' : [],
-        '' : [],
-        '' : [],
-        '' : []
-        }
-    
-    if level == 1:
-        MARKER_GENES = marker_genes_l1
-        CLUSTER_7 = 'CD4+ Central Memory T'
-        FILE = 'L1'
-    elif level == 2:
-        MARKER_GENES = marker_genes_l2
-        CLUSTER_7 = 'CD4 TCM'
-        FILE = 'L2'
+        marker_genes_l2 = {
+            'B intermediate': ['MS4A1', 'TNFRSF13B', 'IGHM', 'IGHD', 'AIM2', 'CD79A', 'LINC01857', 'RALGPS2', 'BANK1', 'CD79B'],
+            'B memory': ['MS4A1', 'COCH', 'AIM2', 'BANK1', 'SSPN', 'CD79A', 'TEX9', 'RALGPS2', 'TNFRSF13C', 'LINC01781'],
+            'B naive': ['IGHM', 'IGHD', 'CD79A', 'IL4R', 'MS4A1', 'CXCR4', 'BTG1', 'TCL1A', 'CD79B', 'YBX3'],
+            'Plasmablast': ['IGHA2', 'MZB1', 'TNFRSF17', 'DERL3', 'TXNDC5', 'TNFRSF13B', 'POU2AF1', 'CPNE5', 'HRASLS2', 'NT5DC2'],
+            'CD4 CTL': ['GZMH', 'CD4', 'FGFBP2', 'ITGB1', 'GZMA', 'CST7', 'GNLY', 'B2M', 'IL32', 'NKG7'],
+            'CD4 Naive': ['TCF7', 'CD4', 'CCR7', 'IL7R', 'FHIT', 'LEF1', 'MAL', 'NOSIP', 'LDHB', 'PIK3IP1'],
+            'CD4 Proliferating': ['MKI67', 'TOP2A', 'PCLAF', 'CENPF', 'TYMS', 'NUSAP1', 'ASPM', 'PTTG1', 'TPX2', 'RRM2'],
+            'CD4 TCM': ['IL7R', 'TMSB10', 'CD4', 'ITGB1', 'LTB', 'TRAC', 'AQP3', 'LDHB', 'IL32', 'MAL'],
+            'CD4 TEM': ['IL7R', 'CCL5', 'FYB1', 'GZMK', 'IL32', 'GZMA', 'KLRB1', 'TRAC', 'LTB', 'AQP3'],
+            'Treg': ['RTKN2', 'FOXP3', 'AC133644.2', 'CD4', 'IL2RA', 'TIGIT', 'CTLA4', 'FCRL3', 'LAIR2', 'IKZF2'],
+            'CD8 Naive': ['CD8B', 'S100B', 'CCR7', 'RGS10', 'NOSIP', 'LINC02446', 'LEF1', 'CRTAM', 'CD8A', 'OXNAD1'],
+            'CD8 Proliferating': ['MKI67', 'CD8B', 'TYMS', 'TRAC', 'PCLAF', 'CD3D', 'CLSPN', 'CD3G', 'TK1', 'RRM2'],
+            'CD8 TCM': ['CD8B', 'ANXA1', 'CD8A', 'KRT1', 'LINC02446', 'YBX3', 'IL7R', 'TRAC', 'NELL2', 'LDHB'],
+            'CD8 TEM': ['CCL5', 'GZMH', 'CD8A', 'TRAC', 'KLRD1', 'NKG7', 'GZMK', 'CST7', 'CD8B', 'TRGC2'],
+            'ASDC': ['PPP1R14A', 'LILRA4', 'AXL', 'IL3RA', 'SCT', 'SCN9A', 'LGMN', 'DNASE1L3', 'CLEC4C', 'GAS6'],
+            'cDC1': ['CLEC9A', 'DNASE1L3', 'C1orf54', 'IDO1', 'CLNK', 'CADM1', 'FLT3', 'ENPP1', 'XCR1', 'NDRG2'],
+            'cDC2': ['FCER1A', 'HLA-DQA1', 'CLEC10A', 'CD1C', 'ENHO', 'PLD4', 'GSN', 'SLC38A1', 'NDRG2', 'AFF3'],
+            'pDC': ['ITM2C', 'PLD4', 'SERPINF1', 'LILRA4', 'IL3RA', 'TPM2', 'MZB1', 'SPIB', 'IRF4', 'SMPD3'],
+            'CD14 Mono': ['S100A9', 'CTSS', 'S100A8', 'LYZ', 'VCAN', 'S100A12', 'IL1B', 'CD14', 'G0S2', 'FCN1'],
+            'CD16 Mono': ['CDKN1C', 'FCGR3A', 'PTPRC', 'LST1', 'IER5', 'MS4A7', 'RHOC', 'IFITM3', 'AIF1', 'HES4'],
+            'NK': ['GNLY', 'TYROBP', 'NKG7', 'FCER1G', 'GZMB', 'TRDC', 'PRF1', 'FGFBP2', 'SPON2', 'KLRF1'],
+            'NK Proliferating': ['MKI67', 'KLRF1', 'TYMS', 'TRDC', 'TOP2A', 'FCER1G', 'PCLAF', 'CD247', 'CLSPN', 'ASPM'],
+            'NK_CD56bright': ['XCL2', 'FCER1G', 'SPINK2', 'TRDC', 'KLRC1', 'XCL1', 'SPTSSB', 'PPP1R9A', 'NCAM1', 'TNFRSF11A'],
+            'Eryth': ['HBD', 'HBM', 'AHSP', 'ALAS2', 'CA1', 'SLC4A1', 'IFIT1B', 'TRIM58', 'SELENBP1', 'TMCC2'],
+            'HSPC':['SPINK2', 'PRSS57', 'CYTL1', 'EGFL7', 'GATA2', 'CD34', 'SMIM24', 'AVP', 'MYB', 'LAPTM4B'],
+            'ILC': ['KIT', 'TRDC', 'TTLL10', 'LINC01229', 'SOX4', 'KLRB1', 'TNFRSF18', 'TNFRSF4', 'IL1R1', 'HPGDS'],
+            'Platelet': ['PPBP', 'PF4', 'NRGN', 'GNG11', 'CAVIN2', 'TUBB1', 'CLU', 'HIST1H2AC', 'RGS18', 'GP9'],
+            'dnT': ['PTPN3', 'MIR4422HG', 'NUCB2', 'CAV1', 'DTHD1', 'GZMA', 'MYB', 'FXYD2', 'GZMK', 'AC004585.1'],
+            'gdT': ['TRDC', 'TRGC1', 'TRGC2', 'KLRC1', 'NKG7', 'TRDV2', 'CD7', 'TRGV9', 'KLRD1', 'KLRG1'],
+            'MAIT': ['KLRB1', 'NKG7', 'GZMK', 'IL7R', 'SLC4A10', 'GZMA', 'CXCR6', 'PRSS35', 'RBM24', 'NCR3']
+            }
+            
+        # Select marker genes based on granularity of subtype desired
+        if level == 1:
+            MARKER_GENES = marker_genes_l1
+            CLUSTER_7 = 'CD4+ Central Memory T'
+        elif level == 2:
+            MARKER_GENES = marker_genes_l2
+            CLUSTER_7 = 'CD4 TCM'
+        ADDRESS = f'Data/PBMC 10k multiomic/WNNL{level}-PBMC-10K-celltype.csv'
+
+    elif DATA == 'cancer':
+        
+        # Load marker genes csv file (from Cell Marker 2.0)
+        markers = pd.read_csv('Data/B cell lymphoma/Experimental cell types.csv', sep=',')
+
+        # Splitting the dataframe
+        healthy_markers = markers[markers['Cancer'] == 'Normal cell']
+        cancer_markers = markers[markers['Cancer'] == 'Cancer cell']
+
+        # Group by 'Cell name' and aggregate 'Cell marker' values
+        healthy_marker_dict = healthy_markers.groupby('Cell name')['Cell marker'].apply(list).to_dict()
+        cancer_marker_dict = cancer_markers.groupby('Cell name')['Cell marker'].apply(list).to_dict()
+        b_cancer_types = ['B cell', 'Memory B cell', 'Naive B cell']
+        cancer_marker_dict = {k: cancer_marker_dict[k] for k in b_cancer_types if k in cancer_marker_dict}
+
+        # Add 'CR' prefix to the keys of the cancer dictionary
+        cancer_dict_prefixed = {f"CR {k}": v for k, v in cancer_marker_dict.items()}
+        # Concatenate dictionaries
+        MARKER_GENES = {**healthy_marker_dict, **cancer_dict_prefixed}
+        ADDRESS = f'Data/B cell lymphoma/{modality} Cell Types {level}.csv'
+
     # Annotations
     mdata.mod['rna'].obs['leiden_wnn']=mdata.obs['leiden_wnn']
+    mdata.mod['rna'].obs['leiden_rna']=mdata.obs['leiden_rna']
 
     # Differential expression analysis between the identified clusters
-    sc.tl.rank_genes_groups(mdata.mod['rna'], 'leiden_wnn', method='wilcoxon')
+    # Set the figure size
+    if modality == 'wnn':
+        sc.tl.rank_genes_groups(mdata.mod['rna'], 'leiden_wnn', method='wilcoxon')
+    elif modality == 'rna':
+        sc.tl.rank_genes_groups(mdata.mod['rna'], 'leiden_rna', method='wilcoxon')
     result = mdata.mod['rna'].uns['rank_genes_groups']
     groups = result['names'].dtype.names
     pd.set_option('display.max_columns', 50)
@@ -248,9 +337,7 @@ def annotate_clusters(mdata, level):
     pd.DataFrame(
         {group + '_' + key[:1]: result[key][group]
         for group in groups for key in ['names', 'pvals']}).head(10) 
-
-    # Marker genes from Azimuth: https://azimuth.hubmapconsortium.org/references/#Human%20-%20PBMC
-    markers_df = sc.tl.marker_gene_overlap(mdata.mod['rna'], MARKER_GENES,method='jaccard')
+    markers_df = sc.tl.marker_gene_overlap(mdata.mod['rna'], MARKER_GENES,method='overlap_coef')
     print(markers_df)
     max_index_dict = markers_df.idxmax().to_dict() # Get the column name of the max value per row
     print(f'Cluster identities: {max_index_dict}')
@@ -267,13 +354,46 @@ def annotate_clusters(mdata, level):
         if len(max_rows) > 1:
             # Store column name and indices of rows with max value
             multi_max_cols[col] = max_rows.index.tolist()
-    print(f'Clusters with more than 1 maximum: {multi_max_cols}')
+    pprint(f'Clusters with more than 1 maximum:')
+    pprint(multi_max_cols)
 
+    # Plot UMAP with marker genes
+    genes = ['PAX5', 'BANK1', 'CD4', 'CD14']
+    for gene in genes:
+        mdata.obs[f'{gene}_expression'] = mdata.mod['rna'][:, mdata.mod['rna'].var_names == gene].X.toarray().squeeze()
+        if modality == 'wnn':
+            sc.pl.umap(mdata, color=f"{gene}_expression", color_map='viridis')
+        elif modality == 'rna':
+            sc.pl.umap(mdata['rna'], color=f"{gene}", color_map='viridis')
+        
     # Manual Relabel
     new_cluster_names = max_index_dict.copy()
-    new_cluster_names['7'] = CLUSTER_7
 
-    mdata.mod['rna'].obs['cell_type'] = mdata.mod['rna'].obs.leiden_wnn.astype("str").values
+    if modality == 'wnn':
+        if DATA == 'pbmc':
+            new_cluster_names['7'] = CLUSTER_7
+        elif (DATA == 'cancer') & (level == 1):
+            for i in range(0, 20):
+                new_cluster_names[str(i)] = 'Other'
+            new_cluster_names['14'] = 'B cell'
+            new_cluster_names['0'] = 'B cell'
+            new_cluster_names['8'] = 'B cell'
+            new_cluster_names['10'] = 'Tumour B cell'
+    elif modality == 'rna':
+        if (DATA == 'cancer') & (level == 1):
+            for i in range(0, 20):
+                new_cluster_names[str(i)] = 'Other'
+            new_cluster_names['0'] = 'B cell'
+            new_cluster_names['7'] = 'B cell'
+            new_cluster_names['8'] = 'B cell'
+            new_cluster_names['14'] = 'B cell'
+            new_cluster_names['12'] = 'Tumour B cell'
+
+    # Relabel clusters
+    if modality == 'wnn':
+        mdata.mod['rna'].obs['cell_type'] = mdata.mod['rna'].obs.leiden_wnn.astype("str").values
+    elif modality == 'rna':
+        mdata.mod['rna'].obs['cell_type'] = mdata.mod['rna'].obs.leiden_rna.astype("str").values
     mdata.mod['rna'].obs.cell_type = mdata.mod['rna'].obs.cell_type.replace(new_cluster_names)
     '''
     mdata.mod['rna'].obs.celltype = mdata.mod['rna'].obs.celltype.astype("category")
@@ -283,14 +403,21 @@ def annotate_clusters(mdata, level):
         'CD14+ Monocytes', 'CD16+ Monocyte',
         'pDC', 'Dendritic Cells','???'])
     '''
+    
+    # Plot UMAP with new cell type labels
     mdata.obs['cell_type']=mdata.mod['rna'].obs['cell_type']
-    sc.pl.umap(mdata, color="cell_type", legend_loc="on data")
+    plt.figure(figsize=(10, 10))
+    colour_dict = {'B cell': 'deepskyblue', 'Tumour B cell': 'coral', 'Other': 'grey'}
+    sc.pl.umap(mdata, color="cell_type", legend_loc="on data", legend_fontsize = 'x-small', palette=colour_dict)
+    sc.pl.umap(mdata['rna'], color="cell_type", legend_loc="on data", legend_fontsize = 'x-small', palette=colour_dict)
 
     # Generate alternate annotation txt file
-    # Extract index and a column
     df_to_save = mdata.obs.reset_index()[['index', 'cell_type']]
+    # Keep only Tumor B and B cells for cancer dataset
+    if (DATA == 'cancer') & (level == 1):
+        df_to_save = df_to_save[df_to_save['cell_type'].isin(['Tumour B cell', 'B cell'])]
     # Save to a txt file, separator can be specified, here it's a space
-    df_to_save.to_csv(f'Data/PBMC 10k multiomic/WNN{FILE}-PBMC-10K-celltype.csv', index=True, header=True, sep='\t')
+    df_to_save.to_csv(ADDRESS, index=True, header=True, sep='\t')
     return
 
 def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=42):
@@ -324,10 +451,8 @@ def perform_pca(mdata_train, mdata_test, raw=False, components=20, random_state=
         plt.ylabel('Proportion of Variance Explained')
         plt.show()
     
-        # Ask user input for desired number of PCs and compute cumulative variance explained
-        #num_pcs = int(input(f"Enter the number of PCs you want to keep for {mod}: "))
-        #print(f"PCA {mod} with {num_pcs} PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:num_pcs])[-1]*100}% of variance")
-
+        print(f"PCA {mod} with 35 PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:35])[-1]*100}% of variance")
+        print(f"PCA {mod} with 10 PCs explains {np.cumsum(pca[mod].explained_variance_ratio_[0:10])[-1]*100}% of variance")
     return mdata_train, mdata_test, pca
 
 def perform_cca(mdata_train, mdata_test, n_components=50):
@@ -551,23 +676,31 @@ def choose_feature_set(feature_set, labels, n_components, resample):
         FEATURES_COMB_TRAIN, LABELS_TRAIN = smote.fit_resample(FEATURES_COMB_TRAIN, LABELS_TRAIN)
     return FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST
 
-def remove_cells(GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test):
+def remove_cells(DATA, GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test):
     '''
     Remove low frequency cell types from the training and test set
     '''
     cells = []
-    if CELL_TYPE == 'B cells':
-        target_strings = ['B','NK']
-    elif CELL_TYPE == 'T cells':
-        target_strings = ['CD4', 'CD8']
-    elif CELL_TYPE == 'Monoblast-Derived':
-        target_strings = ['Mono', 'DC']
-    elif CELL_TYPE == 'All':
-        target_strings = set(y_train)
-    cells = [s for s in set(y_train) if not any(target_string in s for target_string in target_strings)]
-    if GROUND_TRUTH == 'wnnL2':
-        cells.append('Plasmablast') # list of low freq cells
-        cells.append('dnT')
+    # Select cell types
+    if DATA == 'pbmc':
+        if CELL_TYPE == 'B cells':
+            target_strings = ['B','NK']
+        elif CELL_TYPE == 'T cells':
+            target_strings = ['CD4', 'CD8']
+        elif CELL_TYPE == 'Monoblast-Derived':
+            target_strings = ['Mono', 'DC']
+        elif CELL_TYPE == 'All':
+            target_strings = set(y_train)
+        cells = [s for s in set(y_train) if not any(target_string in s for target_string in target_strings)]
+        if GROUND_TRUTH == 'wnnL2':
+            cells.append('Plasmablast') # list of low freq cells
+            cells.append('dnT')
+        if GROUND_TRUTH == 'rna':
+            cells.append('Platelets')
+            cells.append('Double negative T cell')
+    elif DATA == 'cancer':
+        cells.append('unknown mix')
+        cells.append('Fibroblasts')
     print(cells)
     # Print initial shapes
     print(f"Initial shapes of X: {X_train.shape}, {X_test.shape}; and y: {y_train.shape}, {y_test.shape}")
@@ -743,7 +876,7 @@ def bootstrap_confidence_interval(model, X, y, n_bootstrap=1000):
 
     return df, df_f1_bootstrap, df_pap_bootstrap
 
-def model_test_main(model,x_train,y_train,x_test,y_test, subset, table_one_only=False):
+def model_test_main(model,x_train,y_train,x_test,y_test, subset):
     '''
     Function to test a model on a train and test set
     Subset = True: Use only 500 samples from train set for quick testing
