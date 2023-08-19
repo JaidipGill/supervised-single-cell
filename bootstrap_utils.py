@@ -365,15 +365,21 @@ def analyse_metrics(results, suffix, rna, save):
     # Generate dataframes of bootstrap distributions
     df_f1_bootstrap = pd.DataFrame.from_dict(f1_scores_per_class)
     df_pap_bootstrap = pd.DataFrame.from_dict(pap_scores_per_class)
+    df_f1_overall = pd.DataFrame.from_dict(f1_scores_overall)
+    df_precision_overall = pd.DataFrame.from_dict(precision_scores_overall)
+    df_recall_overall = pd.DataFrame.from_dict(recall_scores_overall)
     if save == True:
         if rna == True:
-            df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df_rna.csv')
-            df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df_rna.csv')
-            
-        else:
-            df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df.csv')
-            df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df.csv')
-    
+            suf = '_rna'
+        elif rna == False:
+            suf = ''
+        #df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df{suf}.csv')
+        #df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df{suf}.csv')
+        df_f1_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_F1_overall_df{suf}.csv')
+        df_precision_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_Precision_overall_df{suf}.csv')
+        df_recall_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_Recall_overall_df{suf}.csv')
+
+        
 
     # Initialize lists for DataFrame
     class_list = []

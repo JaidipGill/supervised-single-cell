@@ -33,11 +33,11 @@ svm_model=svm.SVC(random_state=42, class_weight='balanced')
 log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
 EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'rna' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
+GROUND_TRUTH = 'wnnL2' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = rf # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
-DATA = 'cancer' # Choose from: pbmc, cancer
+DATA = 'pbmc' # Choose from: pbmc, cancer
 
 if DATA == 'pbmc':
     INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
@@ -73,10 +73,10 @@ for EMBEDDING in ['PCA', 'scVI']:
                 results[prefix] = pickle.load(f)
 
         # PROCESS METRICS
-        rna_results = boot.analyse_metrics(results, SUFFIX, rna=True, save = False)
-        comb_results = boot.analyse_metrics(results, SUFFIX, rna=False, save = False)
-        print(f'{EMBEDDING} {CL.__class__.__name__} RNA: Precision: {rna_results.iloc[12]["mean Precision score"].round(2)} ({rna_results.iloc[12]["lower Precision CI"].round(2)} - {rna_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {rna_results.iloc[12]["mean Recall score"].round(2)} ({rna_results.iloc[12]["lower Recall CI"].round(2)} - {rna_results.iloc[12]["upper Recall CI"].round(2)}), F1: {rna_results.iloc[12]["mean F1 score"].round(2)} ({rna_results.iloc[12]["lower F1 CI"].round(2)} - {rna_results.iloc[12]["upper F1 CI"].round(2)})')
-        print(f'{EMBEDDING} {CL.__class__.__name__} COMB: Precision: {comb_results.iloc[12]["mean Precision score"].round(2)} ({comb_results.iloc[12]["lower Precision CI"].round(2)} - {comb_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {comb_results.iloc[12]["mean Recall score"].round(2)} ({comb_results.iloc[12]["lower Recall CI"].round(2)} - {comb_results.iloc[12]["upper Recall CI"].round(2)}), F1: {comb_results.iloc[12]["mean F1 score"].round(2)} ({comb_results.iloc[12]["lower F1 CI"].round(2)} - {comb_results.iloc[12]["upper F1 CI"].round(2)})')
+        rna_results = boot.analyse_metrics(results, SUFFIX, rna=True, save = True)
+        comb_results = boot.analyse_metrics(results, SUFFIX, rna=False, save = True)
+        #print(f'{EMBEDDING} {CL.__class__.__name__} RNA: Precision: {rna_results.iloc[12]["mean Precision score"].round(2)} ({rna_results.iloc[12]["lower Precision CI"].round(2)} - {rna_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {rna_results.iloc[12]["mean Recall score"].round(2)} ({rna_results.iloc[12]["lower Recall CI"].round(2)} - {rna_results.iloc[12]["upper Recall CI"].round(2)}), F1: {rna_results.iloc[12]["mean F1 score"].round(2)} ({rna_results.iloc[12]["lower F1 CI"].round(2)} - {rna_results.iloc[12]["upper F1 CI"].round(2)})')
+        #print(f'{EMBEDDING} {CL.__class__.__name__} COMB: Precision: {comb_results.iloc[12]["mean Precision score"].round(2)} ({comb_results.iloc[12]["lower Precision CI"].round(2)} - {comb_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {comb_results.iloc[12]["mean Recall score"].round(2)} ({comb_results.iloc[12]["lower Recall CI"].round(2)} - {comb_results.iloc[12]["upper Recall CI"].round(2)}), F1: {comb_results.iloc[12]["mean F1 score"].round(2)} ({comb_results.iloc[12]["lower F1 CI"].round(2)} - {comb_results.iloc[12]["upper F1 CI"].round(2)})')
 # %% ----------------------------------------------------------------
 # EMBEDDING COMPARISON
 
@@ -145,11 +145,13 @@ for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
     # Convert the dataframe to a long format
     df_melted = df.melt(value_name='Silhouette Score', var_name='DataSet')
 
+    # Save the DataFrame to a CSV file
+    df_melted.to_csv(f'Data/{INPUT_ADDRESS.split("/")[0]}/Silhouette Scores/silhouette_scores_{EMBEDDING}.csv', index=False)
     # Assuming you already have your data in the df_melted DataFrame
     plt.figure(figsize=(10, 7))
     sns.boxplot(x='DataSet', y='Silhouette Score', data=df_melted, palette=colors,order=order)
     plt.tight_layout()
-    plt.savefig(f"Data/PBMC 10k multiomic/Final Results/{EMBEDDING} sil.png", dpi=300, bbox_inches='tight')
+    #plt.savefig(f"Data/PBMC 10k multiomic/Final Results/{EMBEDDING} sil.png", dpi=300, bbox_inches='tight')
     plt.show()
 
 # %% ----------------------------------------------------------------

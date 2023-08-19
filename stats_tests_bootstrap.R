@@ -6,12 +6,18 @@ library(ggsignif)
 library(dplyr)
 library(stringr)
 library(RColorBrewer)
-
+library(ggh4x)
 # Interpretation Modelling ------------------------------------------------
 
+data <- read.csv("Data/PBMC 10k multiomic/Interpretation/X_y.csv")
+predictors <- names(data)[1:70]
+formula_string <- paste("X2 ~", paste(predictors, collapse = " + "))
+formula_obj <- as.formula(formula_string)
+model <- glm(formula_obj, data = data, family = "binomial")
+summary(model)
 
 
-# Dotted Boxplot ----------------------------------------------------------
+# Per-class Boxplot ----------------------------------------------------------
 
 EMBEDDINGS = c('PCA', 'scVI')
 GROUND_TRUTHS = 'wnnL2'
@@ -88,6 +94,107 @@ for (metric in unique(df_long$Metric)) {
 }
 
 
+# Algorithm Boxplot (FIGURE 2) --------------------------------------------
+
+
+EMBEDDINGS = c('PCA', 'scVI')
+GROUND_TRUTHS = 'wnnL2'
+CLASSIFIERS = c('RandomForestClassifier', 'SVC', 'LogisticRegression')
+DATA = 'pbmc'
+CELL_TYPE = 'All'
+N_COMPONENTS = 35
+
+df_combined <- data.frame()
+
+for (GROUND_TRUTH in GROUND_TRUTHS) {
+  for (EMBEDDING in EMBEDDINGS) {
+    for (CL in CLASSIFIERS) {
+      SUFFIX = glue('{DATA}_{CL}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}')
+      
+      # Read the CSV files
+      df_A_metric1 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_F1_overall_df.csv"))
+      df_A_metric2 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_Precision_overall_df.csv"))
+      df_A_metric3 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_Recall_overall_df.csv"))
+      
+      df_B_metric1 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_F1_overall_df_rna.csv"))
+      df_B_metric2 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_Precision_overall_df_rna.csv"))
+      df_B_metric3 <- read_csv(glue("Supervised Models/Macro Metrics/Results_{SUFFIX}_Recall_overall_df_rna.csv"))
+      
+      # Add identifying columns
+      df_A_metric1$Model <- 'RNA + ATAC'
+      df_A_metric1$Metric <- 'F1 Scores'
+      df_A_metric2$Model <- 'RNA + ATAC'
+      df_A_metric2$Metric <- 'Precision'
+      df_A_metric3$Model <- 'RNA + ATAC'
+      df_A_metric3$Metric <- 'Recall'
+      
+      df_B_metric1$Model <- 'RNA'
+      df_B_metric1$Metric <- 'F1 Scores'
+      df_B_metric2$Model <- 'RNA'
+      df_B_metric2$Metric <- 'Precision'
+      df_B_metric3$Model <- 'RNA'
+      df_B_metric3$Metric <- 'Recall'
+      
+      # Combine datasets
+      df_all <- bind_rows(df_A_metric1, df_A_metric2, df_A_metric3, df_B_metric1, df_B_metric2, df_B_metric3) %>%
+        mutate(Combination = paste(EMBEDDING, CL, sep = "_"))
+      df_all <- df_all %>% select(-...1)
+      df_all <- df_all %>%
+        mutate(Combination = str_replace_all(Combination, "_", " "))
+      df_all <- df_all %>%
+        mutate(Combination = str_replace_all(Combination, "RandomForestClassifier", "RF"))
+      df_all <- df_all %>%
+        mutate(Combination = str_replace_all(Combination, "LogisticRegression", "LR"))
+      
+      df_combined <- bind_rows(df_combined, df_all)
+    }
+  }
+}
+
+# Boxplot with nested facet
+df_combined$Embedding <- gsub("\n.*", "", df_combined$Combination)
+df_combined$Classifier <- gsub(".*\n", "", df_combined$Combination)
+
+p <- ggplot(df_combined, aes(x = Classifier, y = `0`, color = Model)) +
+  geom_boxplot(position = "dodge") +
+  facet_nested(. ~ Embedding + Metric, scales = "free_y") +
+  labs(x = "Classifier", y = "Score", fill = "Model") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_color_brewer(palette="Set1")
+
+print(p)
+
+
+# Silhouette scores -------------------------------------------------------
+
+# Add an embedding column to each dataframe
+pca$Embedding <- "PCA"
+scvi$Embedding <- "scVI"
+
+# Combine the dataframes
+df_combined <- rbind(pca, scvi)
+
+# Split DataSet column into Model and DataSet.Split columns
+df_combined$Model <- ifelse(grepl("RNA", df_combined$DataSet), "RNA", "RNA + ATAC")
+df_combined$DataSet.Split <- ifelse(grepl("Train", df_combined$DataSet), "Train", "Test")
+
+# Reorder the factor levels for the desired order in the x-axis
+df_combined$DataSet.Split <- factor(df_combined$DataSet.Split, levels = c("Train", "Test"))
+
+# Reorder levels for the color palette to keep RNA in red and RNA + ATAC in blue
+df_combined$Model <- factor(df_combined$Model, levels = c("RNA", "RNA + ATAC"))
+
+# Plot with ggplot2
+p <- ggplot(df_combined, aes(x = DataSet.Split, y = Silhouette.Score, color = Model)) +
+  geom_boxplot(position = position_dodge(width=0.75), width=0.6) +
+  facet_wrap(~ Embedding) + 
+  labs(x = "Data Split", y = "Silhouette Score", fill = "Model") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_manual(values = c("red", "blue"))
+
+print(p)
 
 # Statistical Tests -------------------------------------------------------
 
