@@ -37,6 +37,7 @@ from sklearn.metrics import classification_report
 from collections import defaultdict
 import torch
 from pprint import pprint
+from adjustText import adjust_text
 
 # %% ----------------------------------------------------------------
 # FUNCTIONS
@@ -683,6 +684,11 @@ def remove_cells(DATA, GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test
     cells = []
     # Select cell types
     if DATA == 'pbmc':
+        if GROUND_TRUTH == 'rna':
+            for array in [y_train, y_test]:
+                array = pd.Series(array)
+                array.fillna('Platelets', inplace=True)
+                array = array.to_numpy()
         if CELL_TYPE == 'B cells':
             target_strings = ['B','NK']
         elif CELL_TYPE == 'T cells':
@@ -728,6 +734,24 @@ def remove_cells(DATA, GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test
     print(f"New shapes of X: {X_train.shape}, {X_test.shape}; and y: {y_train.shape}, {y_test.shape}")
 
     return X_train, X_test, y_train, y_test
+
+def combined_viz(combined, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, LABELS_TEST, LABELS_TRAIN):
+    '''
+    Visualize embeddings of entire dataset, either combined or RNA only    
+    '''
+    if combined == True:
+        FEATURES_TRAIN = FEATURES_COMB_TRAIN
+        FEATURES_TEST = FEATURES_COMB_TEST
+    else:
+        FEATURES_TRAIN = FEATURES_RNA_TRAIN
+        FEATURES_TEST = FEATURES_RNA_TEST
+    FEATURES_TRAIN['label'] = LABELS_TRAIN.tolist()
+    FEATURES_TEST['label'] = LABELS_TEST.tolist()
+    df = pd.concat([FEATURES_TRAIN, FEATURES_TEST], axis=0,ignore_index=True)
+    FEATURES_TRAIN.drop(['label'], axis=1, inplace=True)
+    FEATURES_TEST.drop(['label'], axis=1, inplace=True)
+    visualise_embeddings(df.drop(['label'],axis=1), df['label'])
+    return
 
 def bootstrap_confidence_interval(model, X, y, n_bootstrap=1000):
     """
@@ -1034,6 +1058,11 @@ def visualise_embeddings(features, labels):
     '''
     reducer = umap.UMAP(random_state=42)
     embedding = reducer.fit_transform(features)
+
+    # Compute cluster centroids
+    df = pd.DataFrame(embedding, columns=['x', 'y'])
+    df['labels'] = labels
+    centroids = df.groupby('labels').mean()
     '''
     Plot using Plotly
     df = pd.DataFrame(embedding, columns=['UMAP1', 'UMAP2'])
@@ -1049,21 +1078,31 @@ def visualise_embeddings(features, labels):
     fig.show()
     '''
     # Plot using Seaborn
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(
+    plt.figure(figsize=(12, 10))
+    ax = sns.scatterplot(
         x=embedding[:, 0],
         y=embedding[:, 1],
-        hue=labels,  # Provide your label array here
-        palette=sns.color_palette("Paired", len(np.unique(labels))),  # Choose a color palette
+        hue=labels,
+        palette=sns.color_palette("Paired", len(np.unique(labels))),
         legend="full",
-        alpha=0.8
+        alpha=0.6
     )
-    plt.title("UMAP Visualization")
+    # Using adjustText
+    unique_labels = np.unique(labels)
+    texts = []
+    for label in unique_labels:
+        # Take the mean of x and y coordinates for each cluster
+        mean_x = np.mean(embedding[labels == label, 0])
+        mean_y = np.mean(embedding[labels == label, 1])
+        texts.append(plt.text(mean_x, mean_y, str(label), fontsize=10, fontweight='bold'))
+
+    adjust_text(texts, ax=ax, expand_points=(1.5, 1.5), expand_text=(1, 1), force_points=0.2,
+                arrowprops=dict(arrowstyle='->', color='black', lw=1))
+
     plt.show()
     return embedding
 
-
-def feature_importance(model, X_test, mdata_train):
+def feature_importance(model, X_test):
 
     '''
     Explain feature importance for components using SHAP + loading coefficients
@@ -1083,7 +1122,7 @@ def feature_importance(model, X_test, mdata_train):
     # Visualize the training set predictions
     for cell in range(0, len(shap_values)):
         shap.summary_plot(shap_values[cell], X_test, title=f"Cell {cell} SHAP Summary Plot")
-
+    '''
     # Create a dictionary to store feature importances per gene per cell
     feat_imp = {}
     for gene in range(0, mdata_train.mod['rna'].varm['PCs'].shape[0]): 
@@ -1104,8 +1143,26 @@ def feature_importance(model, X_test, mdata_train):
                 feature_importances = np.sum(feature_contributions)
                 gene_imp.append(feature_importances)
             feat_imp[gene][cell]=sum(gene_imp)
+    '''
+      # Compute sums for RNA and ATAC for each class
+    rna_shap_sums = []
+    atac_shap_sums = []
+
+    for class_shap_values in shap_values:
+        # For each class, sum the SHAP values for each category
+        rna_sum = np.sum(np.abs(class_shap_values[:, X_test.columns.str.contains('RNA')]))
+        atac_sum = np.sum(np.abs(class_shap_values[:, X_test.columns.str.contains('ATAC')]))
         
-    return shap_values, feat_imp
+        rna_shap_sums.append(rna_sum)
+        atac_shap_sums.append(atac_sum)
+    
+    classes = model_cl.classes_
+    for cell_type, rna_sum, atac_sum in zip(classes, rna_sums, atac_sums):
+        print(f'{cell_type}: RNA: {round(rna_sum,2)}, ATAC: {round(atac_sum,2)}, ATAC Weight: {round(atac_sum/(rna_sum+atac_sum),2)}')
+
+
+    return rna_shap_sums, atac_shap_sums, shap_values
+
 
 
 def plot_loading_coefficients(shap_values, mdata_train):

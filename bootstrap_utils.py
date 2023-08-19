@@ -81,7 +81,7 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
 
     if data == 'cancer':
         if GROUND_TRUTH == 'rna':
-            annotations = pd.read_csv('Data/B cell lymphoma/rna Cell Types 1.csv', sep='\t', header=0, index_col=1)
+            annotations = pd.read_csv('Data/B cell lymphoma/Original Cell Types.csv', sep=',', index_col=0)
         elif GROUND_TRUTH == 'wnnL1':
             annotations= pd.read_csv('Data/B cell lymphoma/wnn Cell Types 1.csv',  sep='\t', header=0, index_col=1)
         ann_list= [annotations]
@@ -110,7 +110,7 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
 
         # Count number of NAs in cell_type column
         print(f"Cell_type {idx} NAs: {mdata.obs[f'cell_type{idx}'].isna().sum()}")
-
+    '''
     if data == 'cancer':
         # Get the cell type annotations
         cell_types = mdata.obs['cell_type0'].values
@@ -120,8 +120,8 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
         subset_mdata = mdata[mask]
 
     print(subset_mdata)
-
-    return subset_mdata
+    '''
+    return mdata
 
 def load_boot(i, N, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX):
     '''
@@ -333,39 +333,71 @@ def model_test_main(model, outcome, x_train,y_train,x_test,y_test, subset, class
 
     return(model, y_pred_test, pap_scores_per_class, f1_scores_per_class, f1_scores_overall, precision_scores_per_class, precision_scores_overall, recall_scores_per_class, recall_scores_overall)
 
-def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall, suffix, rna):
+def analyse_metrics(results, suffix, rna, save):
     '''
     Analyse metrics from bootstrapping
     - Derives confidence intervals of F1 and PAP scores for each class using
       percentile method
     - Plots histograms of F1 and PAP scores for each class
-    '''
+    '''       
+    if rna == True:
+        f1_scores_per_class = results['rna_f1']
+        f1_scores_overall = results['rna_f1_overall']
+        pap_scores_per_class = results['rna_pap']
+        precision_scores_per_class = results['rna_precision']
+        precision_scores_overall = results['rna_precision_overall']
+        recall_scores_per_class = results['rna_recall']
+        recall_scores_overall = results['rna_recall_overall']
+    elif rna == False:
+        f1_scores_per_class = results['comb_f1']
+        f1_scores_overall = results['comb_f1_overall']
+        pap_scores_per_class = results['comb_pap']
+        precision_scores_per_class = results['comb_precision']
+        precision_scores_overall = results['comb_precision_overall']
+        recall_scores_per_class = results['comb_recall']
+        recall_scores_overall = results['comb_recall_overall']
+
+    # Get list of classes
     classes = list(f1_scores_per_class.keys())
     for class_, scores in f1_scores_per_class.items():
         print(f"Class: {class_}, number of scores: {len(scores)}")
-
+        
     # Generate dataframes of bootstrap distributions
     df_f1_bootstrap = pd.DataFrame.from_dict(f1_scores_per_class)
     df_pap_bootstrap = pd.DataFrame.from_dict(pap_scores_per_class)
-    if rna == True:
-        df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df_rna.csv')
-        df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df_rna.csv')
-    else:
-        df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df.csv')
-        df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df.csv')
+    if save == True:
+        if rna == True:
+            df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df_rna.csv')
+            df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df_rna.csv')
+            
+        else:
+            df_f1_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_F1_df.csv')
+            df_pap_bootstrap.to_csv(f'Supervised Models/Results_{suffix}_PAP_df.csv')
+    
 
     # Initialize lists for DataFrame
     class_list = []
+
     lower_f1_list = []
     upper_f1_list = []
     mean_f1_list = []
+    f1_scores_list = []
+    class_scores_list = []
+
     lower_pap_list = []
     upper_pap_list = []
     mean_pap_list = []
-    f1_scores_list = []
-    class_scores_list = []
     pap_scores_list = []
     class_pap_scores_list = []
+
+    lower_precision_list = []
+    upper_precision_list = []
+    mean_precision_list = []
+
+    lower_recall_list = []
+    upper_recall_list = []
+    mean_recall_list = []
+
 
     # Compute and print confidence intervals per class
     for class_ in classes:
@@ -374,10 +406,15 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
         lower_f1 = np.percentile(f1_scores_per_class[class_], 2.5)
         upper_f1 = np.percentile(f1_scores_per_class[class_], 97.5)
         mean_f1 = np.mean(f1_scores_per_class[class_])
-        print(pap_scores_per_class[class_])
         lower_pap = np.percentile(pap_scores_per_class[class_], 2.5)
         upper_pap = np.percentile(pap_scores_per_class[class_], 97.5)
         mean_pap = np.mean(pap_scores_per_class[class_])
+        lower_precision = np.percentile(precision_scores_per_class[class_], 2.5)
+        upper_precision = np.percentile(precision_scores_per_class[class_], 97.5)
+        mean_precision = np.mean(precision_scores_per_class[class_])
+        lower_recall = np.percentile(recall_scores_per_class[class_], 2.5)
+        upper_recall = np.percentile(recall_scores_per_class[class_], 97.5)
+        mean_recall = np.mean(recall_scores_per_class[class_])
 
         # Add data to lists
         class_list.append(class_)
@@ -387,6 +424,13 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
         lower_pap_list.append(lower_pap)
         upper_pap_list.append(upper_pap)
         mean_pap_list.append(mean_pap)
+        lower_precision_list.append(lower_precision)
+        upper_precision_list.append(upper_precision)
+        mean_precision_list.append(mean_precision)
+        lower_recall_list.append(lower_recall)
+        upper_recall_list.append(upper_recall)
+        mean_recall_list.append(mean_recall)
+
         # Add F1 scores to list
         f1_scores_list += f1_scores_per_class[class_] # Add F1 scores for this class
         class_scores_list += [class_] * len(f1_scores_per_class[class_]) # Repeat class name for each F1 score
@@ -398,12 +442,24 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
     lower_f1_overall = np.percentile(f1_scores_overall, 2.5)
     upper_f1_overall = np.percentile(f1_scores_overall, 97.5)
     mean_f1_overall = np.mean(f1_scores_overall)
+    lower_precision_overall = np.percentile(precision_scores_overall, 2.5)
+    upper_precision_overall = np.percentile(precision_scores_overall, 97.5)
+    mean_precision_overall = np.mean(precision_scores_overall)
+    lower_recall_overall = np.percentile(recall_scores_overall, 2.5)
+    upper_recall_overall = np.percentile(recall_scores_overall, 97.5)
+    mean_recall_overall = np.mean(recall_scores_overall)
 
     # Add overall data to lists
     class_list.append('Overall')
     lower_f1_list.append(lower_f1_overall)
     upper_f1_list.append(upper_f1_overall)
     mean_f1_list.append(mean_f1_overall)
+    lower_precision_list.append(lower_precision_overall)
+    upper_precision_list.append(upper_precision_overall)
+    mean_precision_list.append(mean_precision_overall)
+    lower_recall_list.append(lower_recall_overall)
+    upper_recall_list.append(upper_recall_overall)
+    mean_recall_list.append(mean_recall_overall)
     lower_pap_list.append(None)
     upper_pap_list.append(None)
     mean_pap_list.append(None)
@@ -411,7 +467,6 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
     f1_scores_list += f1_scores_overall
     class_scores_list += ['Overall'] * len(f1_scores_overall)
 
-    # Create DataFrame
     df = pd.DataFrame({
         'class': class_list,
         'mean F1 score': mean_f1_list,
@@ -419,36 +474,43 @@ def analyse_metrics(f1_scores_per_class, pap_scores_per_class, f1_scores_overall
         'upper F1 CI': upper_f1_list,
         'mean PAP score': mean_pap_list,
         'lower PAP CI': lower_pap_list,
-        'upper PAP CI': upper_pap_list
+        'upper PAP CI': upper_pap_list,
+        'mean Precision score': mean_precision_list,  
+        'lower Precision CI': lower_precision_list,
+        'upper Precision CI': upper_precision_list,
+        'mean Recall score': mean_recall_list,
+        'lower Recall CI': lower_recall_list,
+        'upper Recall CI': upper_recall_list
     })
-    print(df_f1_bootstrap.head())
-    print(df_pap_bootstrap.head())
-    print(df)
+
+    #print(df_f1_bootstrap.head())
+    #print(df_pap_bootstrap.head())
+    #print(df)
 
     # Create DataFrame for visualization
     df_viz = pd.DataFrame({
         'F1 score': f1_scores_list,
         'class': class_scores_list
     })
-
+    '''
     # Plot histogram of F1 scores for each class in a single facet plot
     g = sns.FacetGrid(df_viz, col="class", col_wrap=5, sharex=False, sharey=True)
     g.map(plt.hist, "F1 score")
     g.set_titles("{col_name}")
     plt.suptitle('Histogram of F1 scores for each class', y=1.02) # Adding a main title above all the subplots
     plt.show()
-
+    '''
     # Create DataFrame for PAP visualization
     df_viz_pap = pd.DataFrame({
         'PAP score': pap_scores_list,
         'class': class_pap_scores_list
     })
-
+    '''
     # Plot histogram of PAP scores for each class in a single facet plot
     g_pap = sns.FacetGrid(df_viz_pap, col="class", col_wrap=5, sharex=True, sharey=True)
     g_pap.map(plt.hist, "PAP score")
     g_pap.set_titles("{col_name}")
     plt.suptitle('Histogram of PAP scores for each class', y=1.02) # Adding a main title above all the subplots
     plt.show()
-
+    '''
     return df

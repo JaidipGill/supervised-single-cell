@@ -33,11 +33,11 @@ svm_model=svm.SVC(random_state=42, class_weight='balanced')
 log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
 EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'wnnL2' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
+GROUND_TRUTH = 'rna' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = rf # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
-DATA = 'pbmc' # Choose from: pbmc, cancer
+DATA = 'cancer' # Choose from: pbmc, cancer
 
 if DATA == 'pbmc':
     INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
@@ -61,7 +61,7 @@ N_COMPONENTS = 35
 # %% ----------------------------------------------------------------
 # BOOTSTRAP SAMPLES
 
-N = 1 # Number of bootstrap samples
+N = 10 # Number of bootstrap samples
 
 for i in range(0,N):
     
@@ -138,7 +138,7 @@ for i in range(0,N):
 # %% ----------------------------------------------------------------
 # RUN MODELS ON BOOTSTRAP SAMPLES
 
-for GROUND_TRUTH in ['wnnL2','wnnL1']: # ['wnnL2', 'wnnL1', 'rna']
+for GROUND_TRUTH in ['wnnL1','rna']: # ['wnnL2', 'wnnL1', 'rna']
     for EMBEDDING in ['PCA','scVI']: # ['PCA', 'scVI']
         for CL in [rf, svm_model, log_reg]: # [rf, svm_model, log_reg]
             # Get the classes
@@ -249,113 +249,7 @@ for GROUND_TRUTH in ['wnnL2','wnnL1']: # ['wnnL2', 'wnnL1', 'rna']
             boot_taken=(time.process_time() - boot_time)
             print(f'CPU time for boostrap ({SUFFIX}): {boot_taken} seconds or {boot_taken/60} mins or {boot_taken/(60*60)} hrs')
 
-# %% ----------------------------------------------------------------
-# LOAD PAP AND F1 SCORES
 
-for GROUND_TRUTH in ['wnnL2', 'wnnL1', 'rna']:
-    for CL in [svm_model, rf]:
-        # Get the classes
-        SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
-        # Load pap_scores_per_class and f1_scores_per_class
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_pap_{SUFFIX}.pkl', 'rb') as f:
-            comb_pap_scores_per_class = pickle.load(f)
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_{SUFFIX}.pkl', 'rb') as f:
-            comb_f1_scores_per_class = pickle.load(f)
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/comb_f1_overall_{SUFFIX}.pkl', 'rb') as f:
-            comb_f1_scores_overall = pickle.load(f) 
-
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_pap_{SUFFIX}.pkl', 'rb') as f:
-            rna_pap_scores_per_class = pickle.load(f)
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_{SUFFIX}.pkl', 'rb') as f:
-            rna_f1_scores_per_class = pickle.load(f)
-        with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/rna_f1_overall_{SUFFIX}.pkl', 'rb') as f:
-            rna_f1_scores_overall = pickle.load(f) 
-
-        # PROCESS METRICS
-        rna_results = boot.analyse_metrics(rna_f1_scores_per_class, rna_pap_scores_per_class, rna_f1_scores_overall, SUFFIX, rna=True)
-        comb_results = boot.analyse_metrics(comb_f1_scores_per_class, comb_pap_scores_per_class, comb_f1_scores_overall, SUFFIX, rna=False)
-
-# %% ----------------------------------------------------------------
-# EMBEDDING COMPARISON
-
-N = 10
-rna_train_sil = {}
-rna_test_sil = {}
-comb_train_sil = {}
-comb_test_sil = {}
-
-for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
-
-    rna_train_sil[EMBEDDING] = []
-    rna_test_sil[EMBEDDING] = []
-    comb_train_sil[EMBEDDING] = []
-    comb_test_sil[EMBEDDING] = []
-
-    for i in range(0,N):
-
-        # Loading bootstrap sample
-        FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = boot.load_boot(i, N, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX)
-        
-        # Silhouette score for RNA feature set on training data
-        silhouette_rna_train = silhouette_score(FEATURES_RNA_TRAIN, LABELS_TRAIN)
-
-        # Silhouette score for RNA feature set on test data
-        silhouette_rna_test = silhouette_score(FEATURES_RNA_TEST, LABELS_TEST)
-
-        # Silhouette score for COMB feature set on training data
-        silhouette_comb_train = silhouette_score(FEATURES_COMB_TRAIN, LABELS_TRAIN)
-
-        # Silhouette score for COMB feature set on test data
-        silhouette_comb_test = silhouette_score(FEATURES_COMB_TEST, LABELS_TEST)
-
-        print("Silhouette Scores:")
-        print(f"RNA Train: {silhouette_rna_train:.4f}")
-        print(f"RNA Test: {silhouette_rna_test:.4f}")
-        print(f"COMB Train: {silhouette_comb_train:.4f}")
-        print(f"COMB Test: {silhouette_comb_test:.4f}")
-
-        # Append bootstrap iteration silhouette score to lists
-        rna_train_sil[EMBEDDING].append(silhouette_rna_train)
-        rna_test_sil[EMBEDDING].append(silhouette_rna_test)
-        comb_train_sil[EMBEDDING].append(silhouette_comb_train)
-        comb_test_sil[EMBEDDING].append(silhouette_comb_test)
 # %%
-# Define boxplot order
-order = ['RNA Train', 'COMB Train', 'RNA Test', 'COMB Test']
-
-# Colour palette
-colors = {
-    'RNA Train': 'tab:blue',
-    'RNA Test': 'tab:blue',
-    'COMB Train': 'tab:red',
-    'COMB Test': 'tab:red'  # salmon is a light red/pastel color
-}
-
-for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
-    # Creating DataFrame
-    df = pd.DataFrame({
-        'RNA Train': rna_train_sil[EMBEDDING],
-        'RNA Test': rna_test_sil[EMBEDDING],
-        'COMB Train': comb_train_sil[EMBEDDING],
-        'COMB Test': comb_test_sil[EMBEDDING]
-    })
-
-    # Convert the dataframe to a long format
-    df_melted = df.melt(value_name='Silhouette Score', var_name='DataSet')
-
-    # Assuming you already have your data in the df_melted DataFrame
-    plt.figure(figsize=(10, 7))
-    sns.boxplot(x='DataSet', y='Silhouette Score', data=df_melted, palette=colors,order=order)
-    plt.tight_layout()
-    plt.savefig(f"Data/PBMC 10k multiomic/Final Results/{EMBEDDING} sil.png", dpi=300, bbox_inches='tight')
-    plt.show()
-
-# %% ----------------------------------------------------------------
-# VISUALISE A DATASET
-
-embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
-embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
-
-
 
 # %%

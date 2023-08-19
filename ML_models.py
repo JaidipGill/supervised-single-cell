@@ -173,27 +173,3 @@ plt.show()
 corr_matrix = FEATURES_COMB_TRAIN.corr()
 sns.heatmap(corr_matrix)
 plt.show()
-
-# %%
-# VISUALIZE ENTIRE DATASET
-
-def combined_viz(combined, FEATURES_COMB_TRAIN = FEATURES_COMB_TRAIN, FEATURES_COMB_TEST = FEATURES_COMB_TEST, FEATURES_RNA_TRAIN = FEATURES_RNA_TRAIN, FEATURES_RNA_TEST = FEATURES_RNA_TEST, LABELS_TEST = LABELS_TEST, LABELS_TRAIN = LABELS_TRAIN):
-    '''
-    Visualize embeddings of entire dataset, either combined or RNA only    
-    '''
-    if combined == True:
-        FEATURES_TRAIN = FEATURES_COMB_TRAIN
-        FEATURES_TEST = FEATURES_COMB_TEST
-    else:
-        FEATURES_TRAIN = FEATURES_RNA_TRAIN
-        FEATURES_TEST = FEATURES_RNA_TEST
-    FEATURES_TRAIN['label'] = LABELS_TRAIN.tolist()
-    FEATURES_TEST['label'] = LABELS_TEST.tolist()
-    df = pd.concat([FEATURES_TRAIN, FEATURES_TEST], axis=0,ignore_index=True)
-    FEATURES_TRAIN.drop(['label'], axis=1, inplace=True)
-    FEATURES_TEST.drop(['label'], axis=1, inplace=True)
-    ut.visualise_embeddings(df.drop(['label'],axis=1), df['label'])
-    return
-
-combined_viz(combined = False)  
-# %%
