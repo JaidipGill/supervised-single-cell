@@ -365,9 +365,14 @@ def analyse_metrics(results, suffix, rna, save):
     # Generate dataframes of bootstrap distributions
     df_f1_bootstrap = pd.DataFrame.from_dict(f1_scores_per_class)
     df_pap_bootstrap = pd.DataFrame.from_dict(pap_scores_per_class)
+
     df_f1_overall = pd.DataFrame.from_dict(f1_scores_overall)
     df_precision_overall = pd.DataFrame.from_dict(precision_scores_overall)
     df_recall_overall = pd.DataFrame.from_dict(recall_scores_overall)
+
+    df_precision_class = pd.DataFrame.from_dict(precision_scores_per_class)
+    df_recall_class = pd.DataFrame.from_dict(recall_scores_per_class)
+
     if save == True:
         if rna == True:
             suf = '_rna'
@@ -378,8 +383,8 @@ def analyse_metrics(results, suffix, rna, save):
         df_f1_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_F1_overall_df{suf}.csv')
         df_precision_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_Precision_overall_df{suf}.csv')
         df_recall_overall.to_csv(f'Supervised Models/Macro Metrics/Results_{suffix}_Recall_overall_df{suf}.csv')
-
-        
+        #df_precision_class.to_csv(f'Supervised Models/Results_{suffix}_Precision_class_df{suf}.csv')
+        #df_recall_class.to_csv(f'Supervised Models/Results_{suffix}_Recall_class_df{suf}.csv')
 
     # Initialize lists for DataFrame
     class_list = []
@@ -498,25 +503,25 @@ def analyse_metrics(results, suffix, rna, save):
         'F1 score': f1_scores_list,
         'class': class_scores_list
     })
-    '''
+    
     # Plot histogram of F1 scores for each class in a single facet plot
     g = sns.FacetGrid(df_viz, col="class", col_wrap=5, sharex=False, sharey=True)
     g.map(plt.hist, "F1 score")
     g.set_titles("{col_name}")
     plt.suptitle('Histogram of F1 scores for each class', y=1.02) # Adding a main title above all the subplots
     plt.show()
-    '''
+    
     # Create DataFrame for PAP visualization
     df_viz_pap = pd.DataFrame({
         'PAP score': pap_scores_list,
         'class': class_pap_scores_list
     })
-    '''
+    
     # Plot histogram of PAP scores for each class in a single facet plot
     g_pap = sns.FacetGrid(df_viz_pap, col="class", col_wrap=5, sharex=True, sharey=True)
     g_pap.map(plt.hist, "PAP score")
     g_pap.set_titles("{col_name}")
     plt.suptitle('Histogram of PAP scores for each class', y=1.02) # Adding a main title above all the subplots
     plt.show()
-    '''
+    
     return df

@@ -63,20 +63,21 @@ N_COMPONENTS = 35
 prefixes = ['comb_pap', 'comb_f1', 'comb_f1_overall', 'rna_pap', 'rna_f1', 'rna_f1_overall',
                 'rna_precision', 'rna_precision_overall', 'rna_recall', 'rna_recall_overall',
                 'comb_precision', 'comb_precision_overall', 'comb_recall', 'comb_recall_overall']
-for EMBEDDING in ['PCA', 'scVI']:
-    for CL in [rf, svm_model, log_reg]:
-        results ={}
-        # Get the classes
-        SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
-        for prefix in prefixes:
-            with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/{prefix}_{SUFFIX}.pkl', 'rb') as f:
-                results[prefix] = pickle.load(f)
+for GROUND_TRUTH in ['wnnL1', 'rna']: # ['wnnL2', 'wnnL1', 'rna']
+    for EMBEDDING in ['scVI']: # ['PCA', 'scVI']
+        for CL in [svm_model]: # [rf, svm_model, log_reg]
+            results ={}
+            # Get the classes
+            SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
+            for prefix in prefixes:
+                with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/{prefix}_{SUFFIX}.pkl', 'rb') as f:
+                    results[prefix] = pickle.load(f)
 
-        # PROCESS METRICS
-        rna_results = boot.analyse_metrics(results, SUFFIX, rna=True, save = True)
-        comb_results = boot.analyse_metrics(results, SUFFIX, rna=False, save = True)
-        #print(f'{EMBEDDING} {CL.__class__.__name__} RNA: Precision: {rna_results.iloc[12]["mean Precision score"].round(2)} ({rna_results.iloc[12]["lower Precision CI"].round(2)} - {rna_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {rna_results.iloc[12]["mean Recall score"].round(2)} ({rna_results.iloc[12]["lower Recall CI"].round(2)} - {rna_results.iloc[12]["upper Recall CI"].round(2)}), F1: {rna_results.iloc[12]["mean F1 score"].round(2)} ({rna_results.iloc[12]["lower F1 CI"].round(2)} - {rna_results.iloc[12]["upper F1 CI"].round(2)})')
-        #print(f'{EMBEDDING} {CL.__class__.__name__} COMB: Precision: {comb_results.iloc[12]["mean Precision score"].round(2)} ({comb_results.iloc[12]["lower Precision CI"].round(2)} - {comb_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {comb_results.iloc[12]["mean Recall score"].round(2)} ({comb_results.iloc[12]["lower Recall CI"].round(2)} - {comb_results.iloc[12]["upper Recall CI"].round(2)}), F1: {comb_results.iloc[12]["mean F1 score"].round(2)} ({comb_results.iloc[12]["lower F1 CI"].round(2)} - {comb_results.iloc[12]["upper F1 CI"].round(2)})')
+            # PROCESS METRICS
+            rna_results = boot.analyse_metrics(results, SUFFIX, rna=True, save = True)
+            comb_results = boot.analyse_metrics(results, SUFFIX, rna=False, save = True)
+            #print(f'{EMBEDDING} {CL.__class__.__name__} RNA: Precision: {rna_results.iloc[12]["mean Precision score"].round(2)} ({rna_results.iloc[12]["lower Precision CI"].round(2)} - {rna_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {rna_results.iloc[12]["mean Recall score"].round(2)} ({rna_results.iloc[12]["lower Recall CI"].round(2)} - {rna_results.iloc[12]["upper Recall CI"].round(2)}), F1: {rna_results.iloc[12]["mean F1 score"].round(2)} ({rna_results.iloc[12]["lower F1 CI"].round(2)} - {rna_results.iloc[12]["upper F1 CI"].round(2)})')
+            #print(f'{EMBEDDING} {CL.__class__.__name__} COMB: Precision: {comb_results.iloc[12]["mean Precision score"].round(2)} ({comb_results.iloc[12]["lower Precision CI"].round(2)} - {comb_results.iloc[12]["upper Precision CI"].round(2)}), Recall: {comb_results.iloc[12]["mean Recall score"].round(2)} ({comb_results.iloc[12]["lower Recall CI"].round(2)} - {comb_results.iloc[12]["upper Recall CI"].round(2)}), F1: {comb_results.iloc[12]["mean F1 score"].round(2)} ({comb_results.iloc[12]["lower F1 CI"].round(2)} - {comb_results.iloc[12]["upper F1 CI"].round(2)})')
 # %% ----------------------------------------------------------------
 # EMBEDDING COMPARISON
 
@@ -211,119 +212,11 @@ for df_text in ['train', 'test']:
 
 # %% ----------------------------------------------------------------
 # SHAP ANALYSIS
-
-# RUN MODELS ON BOOTSTRAP SAMPLES
-
-for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
-    for EMBEDDING in ['PCA']: # ['PCA', 'scVI']
-        for CL in [rf]: # [rf, svm_model, log_reg]
-            # Get the classes
-            SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
-            f1_scores_per_class = defaultdict(list)
-            f1_scores_overall = []
-            pap_scores_per_class = defaultdict(list)
-
-            f1_scores_per_class_rna = defaultdict(list)
-            f1_scores_overall_rna = []
-            pap_scores_per_class_rna = defaultdict(list)
-
-            precision_scores_per_class = defaultdict(list)
-            precision_scores_overall = []
-            recall_scores_per_class = defaultdict(list)
-            recall_scores_overall = []
-
-            precision_scores_per_class_rna = defaultdict(list)
-            precision_scores_overall_rna = []
-            recall_scores_per_class_rna = defaultdict(list)
-            recall_scores_overall_rna = []
-
-            boot_time = time.process_time()
-
-            N = 1
-            for i in range(0,N):
-                print(f"Bootstrap sample {i}/{N-1}")
-
-                # Loading features
-                X_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_train_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
-                X_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_X/X_test_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
-                # Load labels
-                y_train=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_train_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
-                y_test=pd.read_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_test_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
-                print(y_train)
-
-                if N_COMPONENTS_TO_TEST == 10:
-                    X_train.iloc[:, list(range(0, 10)) + list(range(35, 45))]
-                    X_test.iloc[:, list(range(0, 10)) + list(range(35, 45))]
-
-                # Pre-process labels and features
-                # Converting to pandas series
-                if DATA == 'pbmc':
-                    if GROUND_TRUTH == 'wnnL2':
-                        col = '2'
-                    elif GROUND_TRUTH == 'wnnL1':
-                        col = '1'
-                    elif GROUND_TRUTH == 'rna':
-                        col = '0'
-                elif DATA == 'cancer':
-                    col = '0'
-                    noise = np.random.normal(loc=0, scale=0.5, size=X_train.shape)
-                    X_train = X_train + noise
-                    noise = np.random.normal(loc=0, scale=0.5, size=X_test.shape)
-                    X_test = X_test + noise
-                y_train = y_train[col]
-                y_test = y_test[col]
-                # Create DataFrame from X_train and X_test
-                train_data = pd.DataFrame(X_train)
-                test_data = pd.DataFrame(X_test)
-                # Add y_train and y_test as columns
-                train_data['label'] = y_train
-                test_data['label'] = y_test
-                # Separate X_train, y_train, X_test, and y_test from the updated DataFrame
-                X_train = train_data.iloc[:, :-1]
-                y_train = train_data['label'].to_numpy()
-                X_test = test_data.iloc[:, :-1]
-                y_test = test_data['label'].to_numpy()
-
-                # Filtering cells to specified cell type
-                FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = ut.remove_cells(DATA, GROUND_TRUTH, CELL_TYPE, X_train, X_test, y_train, y_test)
-
-                # RNA ONLY FEATURE SET
-                FEATURES_RNA_TRAIN = FEATURES_COMB_TRAIN.filter(like='RNA')
-                FEATURES_RNA_TEST = FEATURES_COMB_TEST.filter(like='RNA')
-
-                # Get the classes for generating per-class metrics
-                classes = np.unique(LABELS_TRAIN)
-                print(classes)
-
-                # CLASSIFIER RNA ONLY
-                model_cl_rna, y_pred_test, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall, rna_precision_scores_per_class, rna_precision_scores_overall, rna_recall_scores_per_class, rna_recall_scores_overall = boot.model_test_main(CL, OUTCOME, FEATURES_RNA_TRAIN,LABELS_TRAIN,
-                                                        FEATURES_RNA_TEST,LABELS_TEST, classes=classes, f1_scores_per_class = f1_scores_per_class_rna,
-                                                        f1_scores_overall = f1_scores_overall_rna, pap_scores_per_class = pap_scores_per_class_rna,
-                                                        precision_scores_per_class = precision_scores_per_class_rna, precision_scores_overall = precision_scores_overall_rna, 
-                                                        recall_scores_per_class = recall_scores_per_class_rna, recall_scores_overall = recall_scores_overall_rna,
-                                                        subset = False, detailed = False)
-                
-                # CLASSIFIER RNA + ATAC
-                model_cl_atac, y_pred_test, comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall, comb_precision_scores_per_class, comb_precision_scores_overall, comb_recall_scores_per_class, comb_recall_scores_overall = boot.model_test_main(CL, OUTCOME, FEATURES_COMB_TRAIN,LABELS_TRAIN,
-                                                        FEATURES_COMB_TEST,LABELS_TEST, classes=classes, f1_scores_per_class=f1_scores_per_class,
-                                                        f1_scores_overall = f1_scores_overall, pap_scores_per_class = pap_scores_per_class,
-                                                        precision_scores_per_class = precision_scores_per_class, precision_scores_overall = precision_scores_overall, 
-                                                        recall_scores_per_class = recall_scores_per_class, recall_scores_overall = recall_scores_overall,
-                                                        subset = False, detailed = False)
-            
-            boot_taken=(time.process_time() - boot_time)
-            print(f'CPU time for boostrap ({SUFFIX}): {boot_taken} seconds or {boot_taken/60} mins or {boot_taken/(60*60)} hrs')
-
-# %% ----------------------------------------------------------------
-# FEATURE IMPORTANCE 
-
 # Load model
-# open a file, where you stored the pickled data
-file = open('Supervised Models\PCA\RF.pickle', 'rb')
-# dump information to that file
-model_cl = pickle.load(file)
-# %% ----------------------------------------------------------------
-rna_sums, atac_sums, shap_vals = ut.feature_importance(model_cl, FEATURES_COMB_TEST[:100])
+model_cl = pickle.load(open('Supervised Models\Saved Models\Model_pbmc_SVC_scVI_wnnL2_All_35_comb_0.pickle', 'rb'))
+X_train = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_train_scVI_0.pkl')
+X_test = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_test_scVI_0.pkl')
+rna_sums, atac_sums, shap_vals = ut.feature_importance(model_cl, X_train = X_train[:100], X_test=X_test[:500])
 
 # %% ----------------------------------------------------------------
 # EXTRACT FEATURE IMPORTANCE FOR EACH CELL TYPE

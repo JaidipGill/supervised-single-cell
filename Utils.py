@@ -17,7 +17,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import svm
+from sklearn.svm import SVC
 from sklearn.utils import resample
 from xgboost import XGBClassifier
 import time
@@ -1031,9 +1031,9 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset):
 
     return(model, y_pred_test, metrics, f1_df, pap_df)
 
-def save_model(model_cl, location, y_pred_test, y_test, f1_df, pap_df):
+def save_model(model_cl, location):
     '''
-    Save predictions for model as a csv and change name depending on the model
+    Save the model for further analysis
     '''
     if isinstance(model_cl,RandomForestClassifier):
         model_name='rf'
@@ -1042,14 +1042,14 @@ def save_model(model_cl, location, y_pred_test, y_test, f1_df, pap_df):
     elif isinstance(model_cl,svm.SVC):
         model_name='svm'
     #Save model
-    pickle.dump(model_cl, open(f'Supervised Models/{location}.pickle', 'wb'))
+    pickle.dump(model_cl, open(f'Supervised Models/Saved Models/Model_{location}.pickle', 'wb'))
     #Save predictions and observations in a pickle file
-    df = pd.DataFrame(
-        {"Observed" : y_pred_test,
-        "Predictions" : y_test})
-    df.to_pickle(f'Supervised Models/{location}_Predictions.pickle')
-    f1_df.to_csv(f'Supervised Models/{location}_F1_df.csv')
-    pap_df.to_csv(f'Supervised Models/{location}_PAP_df.csv')
+    #df = pd.DataFrame(
+    #    {"Observed" : y_pred_test,
+    #    "Predictions" : y_test})
+    #df.to_pickle(f'Supervised Models/{location}_Predictions.pickle')
+    #f1_df.to_csv(f'Supervised Models/{location}_F1_df.csv')
+    #pap_df.to_csv(f'Supervised Models/{location}_PAP_df.csv')
 
 
 def visualise_embeddings(features, labels):
@@ -1102,7 +1102,7 @@ def visualise_embeddings(features, labels):
     plt.show()
     return embedding
 
-def feature_importance(model, X_test):
+def feature_importance(model, X_test, X_train):
 
     '''
     Explain feature importance for components using SHAP + loading coefficients
@@ -1116,10 +1116,12 @@ def feature_importance(model, X_test):
     
         # Create a linear explainer
         explainer = shap.LinearExplainer(model, X_test)
-    
+    elif isinstance(model, SVC):
+        explainer = shap.KernelExplainer(model.predict_proba, X_train)
+
     shap_values = explainer.shap_values(X_test)
 
-    # Visualize the training set predictions
+    # Visualize the test set predictions
     for cell in range(0, len(shap_values)):
         shap.summary_plot(shap_values[cell], X_test, title=f"Cell {cell} SHAP Summary Plot")
     '''
@@ -1144,6 +1146,7 @@ def feature_importance(model, X_test):
                 gene_imp.append(feature_importances)
             feat_imp[gene][cell]=sum(gene_imp)
     '''
+    '''
       # Compute sums for RNA and ATAC for each class
     rna_shap_sums = []
     atac_shap_sums = []
@@ -1156,13 +1159,34 @@ def feature_importance(model, X_test):
         rna_shap_sums.append(rna_sum)
         atac_shap_sums.append(atac_sum)
     
-    classes = model_cl.classes_
-    for cell_type, rna_sum, atac_sum in zip(classes, rna_sums, atac_sums):
+    classes = model.classes_
+    for cell_type, rna_sum, atac_sum in zip(classes, rna_shap_sums, atac_shap_sums):
         print(f'{cell_type}: RNA: {round(rna_sum,2)}, ATAC: {round(atac_sum,2)}, ATAC Weight: {round(atac_sum/(rna_sum+atac_sum),2)}')
+    '''
+    # Compute SHAP values
+    shap_values = explainer.shap_values(X_test)
 
+    # Use feature names from X_test if it's a dataframe, otherwise use the provided feature_names
+    if feature_names is None:
+        if isinstance(X_test, pd.DataFrame):
+            feature_names = X_test.columns
+        else:
+            raise ValueError("Please provide valid feature names.")
 
-    return rna_shap_sums, atac_shap_sums, shap_values
+    # Dictionary to store results
+    results = {}
 
+    # Iterate over each class's SHAP values
+    for cell in range(len(shap_values)):
+        abs_values = np.abs(shap_values[cell])  # Absolute SHAP values
+
+        # Pair feature names with their SHAP values
+        feature_shap_values = dict(zip(feature_names, abs_values.mean(axis=0)))
+        
+        results[f"Cell {cell}"] = feature_shap_values
+
+    #return rna_shap_sums, atac_shap_sums, shap_values
+    return results
 
 
 def plot_loading_coefficients(shap_values, mdata_train):

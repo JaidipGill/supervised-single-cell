@@ -75,3 +75,34 @@ ut.annotate_clusters(DATA, mdata, level=1, modality = 'rna')
 ut.annotate_clusters(DATA, mdata, level=1, modality = 'wnn')
 
 # %% 
+# UPDATE WNNL1 ANNOTATIONS BY AGGREGATING WNNL2
+
+# Define the mapping dictionary
+label_dict = {
+    'B intermediate': 'B',
+    'B naive': 'B',
+    'CD14 Mono': 'Mono',
+    'CD16 Mono': 'Mono',
+    'CD4 Naive': 'CD4 T',
+    'CD4 TCM': 'CD4 T',
+    'CD4 TEM': 'CD4 T',
+    'CD8 Naive': 'CD8 T',
+    'CD8 TEM': 'CD8 T',
+    'NK': 'NK',
+    'Plasmablast': 'Plasmablast',
+    'cDC2': 'Dendritic',
+    'dnT': 'dnT',
+    'pDC': 'Dendritic'
+}
+
+# Iterate through y_train and test files
+for sample in range(10):
+    for embedding in ['PCA', 'scVI']:
+        for split in ['train', 'test']:
+            # Load the y_train file
+            y = pd.read_pickle(f'Data/PBMC 10k multiomic/Bootstrap_y/y_{split}_{embedding}_{sample}.pkl')
+            # Replace the values in '1' column based on the mapping from '2'
+            y['1'] = y['2'].map(label_dict)
+            # Save the file
+            y.to_pickle(f'Data/PBMC 10k multiomic/Bootstrap_y/y_{split}_{embedding}_{sample}.pkl')
+# %%
