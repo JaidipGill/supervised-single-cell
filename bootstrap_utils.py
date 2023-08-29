@@ -209,7 +209,7 @@ def model_test_main(model, outcome, x_train,y_train,x_test,y_test, subset, class
                     'min_samples_split': np.array([3, 5, 10])}
     elif isinstance(model, svm.SVC):
         param_grid={'C': [0.01, 0.1, 1, 2],
-                    'kernel':['poly'], # RBF only for scVI
+                    'kernel':['poly'], 
                     'gamma': [0.01, 0.1, 1]}
     elif isinstance(model, LogisticRegression):
         param_grid={'penalty':['elasticnet','none'],

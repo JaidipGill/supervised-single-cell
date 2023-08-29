@@ -1094,7 +1094,7 @@ def visualise_embeddings(features, labels):
         # Take the mean of x and y coordinates for each cluster
         mean_x = np.mean(embedding[labels == label, 0])
         mean_y = np.mean(embedding[labels == label, 1])
-        texts.append(plt.text(mean_x, mean_y, str(label), fontsize=10, fontweight='bold'))
+        texts.append(plt.text(mean_x, mean_y, str(label), fontsize=12, fontweight='bold'))
 
     adjust_text(texts, ax=ax, expand_points=(1.5, 1.5), expand_text=(1, 1), force_points=0.2,
                 arrowprops=dict(arrowstyle='->', color='black', lw=1))

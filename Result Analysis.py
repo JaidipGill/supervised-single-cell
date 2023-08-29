@@ -122,52 +122,25 @@ for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
         rna_test_sil[EMBEDDING].append(silhouette_rna_test)
         comb_train_sil[EMBEDDING].append(silhouette_comb_train)
         comb_test_sil[EMBEDDING].append(silhouette_comb_test)
-# %%
-# Define boxplot order
-order = ['RNA Train', 'COMB Train', 'RNA Test', 'COMB Test']
-
-# Colour palette
-colors = {
-    'RNA Train': 'tab:blue',
-    'RNA Test': 'tab:blue',
-    'COMB Train': 'tab:red',
-    'COMB Test': 'tab:red'  # salmon is a light red/pastel color
-}
-
-for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
-    # Creating DataFrame
-    df = pd.DataFrame({
-        'RNA Train': rna_train_sil[EMBEDDING],
-        'RNA Test': rna_test_sil[EMBEDDING],
-        'COMB Train': comb_train_sil[EMBEDDING],
-        'COMB Test': comb_test_sil[EMBEDDING]
-    })
-
-    # Convert the dataframe to a long format
-    df_melted = df.melt(value_name='Silhouette Score', var_name='DataSet')
-
-    # Save the DataFrame to a CSV file
-    df_melted.to_csv(f'Data/{INPUT_ADDRESS.split("/")[0]}/Silhouette Scores/silhouette_scores_{EMBEDDING}.csv', index=False)
-    # Assuming you already have your data in the df_melted DataFrame
-    plt.figure(figsize=(10, 7))
-    sns.boxplot(x='DataSet', y='Silhouette Score', data=df_melted, palette=colors,order=order)
-    plt.tight_layout()
-    #plt.savefig(f"Data/PBMC 10k multiomic/Final Results/{EMBEDDING} sil.png", dpi=300, bbox_inches='tight')
-    plt.show()
 
 # %% ----------------------------------------------------------------
 # VISUALISE A DATASET
+# load data
+x = pd.read_csv('X_y.csv')
+y = x['2']
+for i in range(0,3):
+    x = x.drop(f'{i}', axis=1)
 
+# %%
 # Loading bootstrap sample
-for EMBEDDING in ['PCA','scVI']: # Iterate through embeddings
+for EMBEDDING in ['PCA', 'scVI']: # Iterate through embeddings
     FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = boot.load_boot(0, 0, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX)
 
-    embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
-    embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
+    #embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
+    #embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
+    embedding = ut.visualise_embeddings(FEATURES_RNA_TEST, LABELS_TEST)
+    embedding = ut.visualise_embeddings(FEATURES_COMB_TEST, LABELS_TEST)
 
-# VISUALIZE ENTIRE DATASET
-#combined_viz(combined = False, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, LABELS_TEST, LABELS_TRAIN)  
-#combined_viz(combined = True, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, LABELS_TEST, LABELS_TRAIN)
 # %% ----------------------------------------------------------------
 # FIND MEAN AND STD OF NUMBER OF EACH CELL TYPE PER BOOTSTRAP FOR TRAIN AND TEST
 
@@ -250,9 +223,9 @@ print(mdata.obs['peak_to_gene'][1000])
 # GENERATE CSV FOR R LOG REG
 
 # Load the pickled pandas DataFrame
-X = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_test_PCA_0.pkl')
+X = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_train_scVI_0.pkl')
 # Load the pickled numpy array
-y = np.load('Data\PBMC 10k multiomic\Bootstrap_y\y_test_PCA_0.pkl', allow_pickle=True)  # Assuming the array was saved using numpy's save function
+y = np.load('Data\PBMC 10k multiomic\Bootstrap_y\y_train_scVI_0.pkl', allow_pickle=True)  # Assuming the array was saved using numpy's save function
 # Convert the numpy array to a pandas DataFrame
 y = pd.DataFrame(y)
 # If you want to join/concatenate the numpy array DataFrame to the original DataFrame

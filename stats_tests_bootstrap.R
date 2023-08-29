@@ -10,16 +10,6 @@ library(ggh4x)
 library(purrr)
 library(dunn.test)
 
-# Interpretation Modelling ------------------------------------------------
-
-data <- read.csv("Data/PBMC 10k multiomic/Interpretation/X_y.csv")
-predictors <- names(data)[1:70]
-formula_string <- paste("X2 ~", paste(predictors, collapse = " + "))
-formula_obj <- as.formula(formula_string)
-model <- glm(formula_obj, data = data, family = "binomial")
-summary(model)
-
-
 # GROUND TRUTH (FIGURE 4) -------------------------------------------------
 
 EMBEDDINGS = 'scVI'
@@ -203,18 +193,6 @@ df_long <- df_combined %>%
                names_to = "Cell Type",
                values_to = "Value")
 
-# Plot the data excluding PAP
-df_long_plot <- df_long %>% filter(Metric != "PAP")
-
-p <- ggplot(df_long_plot, aes(x = `Cell Type`, y = Value, color = Model)) +
-  geom_boxplot(position = "dodge") +
-  facet_wrap(~ Metric) +
-  labs(x = NULL, y = "Value", fill = "Model") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_brewer(palette="Set1")
-
-print(p)
-
 
 # Generate summary dataframe
 summary_df <- df_long %>%
@@ -228,6 +206,18 @@ summary_df <- df_long %>%
 
 # Print the summary dataframe
 print(summary_df)
+
+# Plot the data excluding PAP
+df_long_plot <- df_long %>% filter(Metric != "PAP")
+
+p <- ggplot(df_long_plot, aes(x = `Cell Type`, y = Value, color = Model)) +
+  geom_boxplot(position = "dodge") +
+  facet_wrap(~ Metric) +
+  labs(x = NULL, y = "Value", fill = "Model") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_color_brewer(palette="Set1")
+
+print(p)
 
 # Modified function to perform Wilcoxon tests for a given subset of data
 perform_test_celltype <- function(sub_data) {
@@ -595,159 +585,3 @@ for(GROUND_TRUTH in list('wnnL2')){
 
 
 # LEGACY CODE -------------------------------------------------------------
-
-# Kurskal wallis figure 2 (ALGS) ------------------------------------------
-# Statistical Tests
-# # Adjust the Combination column to include the Model information
-# df_combined$Combination <- paste(df_combined$Combination, df_combined$Model, sep = "_")
-# 
-# # Now run the Kruskal-Wallis test followed by the Dunn's test
-# 
-# results <- list()
-# 
-# # For each metric
-# for (metric in unique(df_combined$Metric)) {
-#   # Subset data by metric
-#   subset_data <- df_combined[df_combined$Metric == metric, ]
-#   
-#   # Kruskal Wallis test
-#   kruskal_res <- kruskal.test(`0` ~ Combination, data = subset_data)
-#   
-#   # Post hoc Dunn's test
-#   print(metric)
-#   dunn_res <- dunn.test(subset_data$`0`, subset_data$Combination, method = "bonferroni")
-#   
-#   # Store results
-#   results[[metric]] <- list(KruskalWallis = kruskal_res, DunnTest = dunn_res)
-# }
-# 
-# # Helper function to perform paired Wilcoxon test
-# paired_wilcoxon_test <- function(data1, data2) {
-#   test_result <- wilcox.test(data1, data2, paired = TRUE)
-#   return(test_result$p.value)
-# }
-# 
-# results <- list()
-# 
-# # For each metric
-# for (metric in unique(df_combined$Metric)) {
-#   # Subset data by metric
-#   subset_data <- df_combined[df_combined$Metric == metric, ]
-#   
-#   # List to store p-values for each pairwise combination
-#   p_values <- list()
-#   
-#   # Unique combinations
-#   combinations <- unique(subset_data$Combination)
-#   
-#   # Perform Wilcoxon signed-rank test for every combination
-#   for (i in 1:(length(combinations) - 1)) {
-#     for (j in (i + 1):length(combinations)) {
-#       combo1 <- combinations[i]
-#       combo2 <- combinations[j]
-#       
-#       data1 <- subset_data[subset_data$Combination == combo1, ]$`0`
-#       data2 <- subset_data[subset_data$Combination == combo2, ]$`0`
-#       
-#       p_value <- paired_wilcoxon_test(data1, data2)
-#       p_values[[paste(combo1, combo2, sep = " vs. ")]] <- p_value
-#     }
-#   }
-#   
-#   # Adjust p-values using Bonferroni correction
-#   adjusted_p_values <- p.adjust(unlist(p_values), method = "bonferroni")
-#   
-#   # Store results for the current metric
-#   results[[metric]] <- adjusted_p_values
-# }
-# 
-# # Print the results
-# print(results)
-# 
-# # Group by Model, Classifier, Embedding, and Metric, then calculate the summary statistics
-# summary_df <- df_combined %>%
-#   group_by(Model, Classifier, Embedding, Metric) %>%
-#   summarise(
-#     Median = median(`0`),
-#     Q1 = quantile(`0`, 0.25),
-#     Q3 = quantile(`0`, 0.75)
-#   )
-# 
-# print(summary_df)
-
-# Per-class Boxplot ----------------------------------------------------------
-
-EMBEDDINGS = c('PCA', 'scVI')
-GROUND_TRUTHS = 'wnnL2'
-CLASSIFIERS = c('RandomForestClassifier', 'SVC', 'LogisticRegression')
-DATA = 'pbmc'
-CELL_TYPE = 'All'
-N_COMPONENTS = 35
-
-df_combined <- data.frame()
-
-for (GROUND_TRUTH in GROUND_TRUTHS) {
-  for (EMBEDDING in EMBEDDINGS) {
-    for (CL in CLASSIFIERS) {
-      SUFFIX = glue('{DATA}_{CL}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}')
-      
-      # Read the CSV files
-      df_A_metric1 <- read_csv(glue("Supervised Models/Results_{SUFFIX}_F1_df.csv"))
-      df_A_metric2 <- read_csv(glue("Supervised Models/Results_{SUFFIX}_PAP_df.csv"))
-      
-      df_B_metric1 <- read_csv(glue("Supervised Models/Results_{SUFFIX}_F1_df_rna.csv"))
-      df_B_metric2 <- read_csv(glue("Supervised Models/Results_{SUFFIX}_PAP_df_rna.csv"))
-      
-      # Add identifying columns
-      df_A_metric1$Model <- 'RNA + ATAC'
-      df_A_metric1$Metric <- 'F1 Scores'
-      df_A_metric2$Model <- 'RNA + ATAC'
-      df_A_metric2$Metric <- 'PAP Scores'
-      
-      df_B_metric1$Model <- 'RNA'
-      df_B_metric1$Metric <- 'F1 Scores'
-      df_B_metric2$Model <- 'RNA'
-      df_B_metric2$Metric <- 'PAP Scores'
-      
-      df_all <- bind_rows(df_A_metric1, df_A_metric2, df_B_metric1, df_B_metric2) %>%
-        mutate(Combination = paste(EMBEDDING, CL, sep = "_"))
-      df_all <- df_all %>% select(-...1)
-      df_all <- df_all %>%
-        mutate(Combination = str_replace_all(Combination, "_", " "))
-      df_all <- df_all %>%
-        mutate(Combination = str_replace_all(Combination, "RandomForestClassifier", "RF"))
-      df_all <- df_all %>%
-        mutate(Combination = str_replace_all(Combination, "LogisticRegression", "LR"))
-      
-      df_combined <- bind_rows(df_combined, df_all)
-    }
-  }
-}
-
-# Extract the column names for the cell types
-selected_column_names <- colnames(df_combined)[3:(ncol(df_combined) - 2)]
-
-numeric_columns <- select(df_combined, where(is.numeric)) %>% names()
-print(numeric_columns)
-
-df_long <- df_combined %>%
-  pivot_longer(cols = all_of(numeric_columns),
-               names_to = "Cell Type",
-               values_to = "Value")
-
-# Plot the data
-for (metric in unique(df_long$Metric)) {
-  # Filter data for the current metric
-  df_metric <- df_long %>% filter(Metric == metric)
-  
-  # Plot
-  p <- ggplot(df_metric, aes(x = Combination, y = Value, color = Model)) +
-    geom_boxplot(position = "dodge") +
-    facet_wrap(~ `Cell Type`) +
-    labs(x = "Embedding + Classifier", y = metric, fill = "Model") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_color_brewer(palette="Set1")
-  
-  print(p)
-}
-
