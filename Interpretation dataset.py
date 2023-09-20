@@ -98,23 +98,3 @@ print(X.head())
 X.to_csv(f'Data/PBMC 10k multiomic/Interpretation/X_{GROUND_TRUTH_SUFFIX}.csv')
 # Save label dataframe
 y.to_csv(f'Data/PBMC 10k multiomic/Interpretation/y_{GROUND_TRUTH_SUFFIX}.csv')
-
-# %% ----------------------------------------------------------------
-# MULTI-CLASS LOGISTIC REGRESSION
-
-# Load the feature and label datasets
-X = pd.read_csv(f'Data/PBMC 10k multiomic/Interpretation/X_{GROUND_TRUTH_SUFFIX}.csv', index_col=0)
-y = pd.read_csv(f'Data/PBMC 10k multiomic/Interpretation/y_{GROUND_TRUTH_SUFFIX}.csv', index_col=0)
-y = y['2']
-# %%
-# Train the model
-clf = LogisticRegression(solver='lbfgs', multi_class='ovr', penalty = None, random_state=42)
-clf.fit(X, y)
-
-# %%
-# The coefficients for each class
-print(clf.coef_)
-# The intercepts for each class
-print(clf.intercept_)
-
-# %%

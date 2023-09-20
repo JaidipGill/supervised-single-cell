@@ -16,4 +16,5 @@
 /Supervised Models/scVI
 /Supervised Models/PCA MINOR
 /Supervised Models/PCA
+CCA.py
 /__pycache__

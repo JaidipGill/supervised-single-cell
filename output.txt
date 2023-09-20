@@ -1,0 +1,728 @@
+Folder PATH listing for volume Windows-SSD
+Volume serial number is D64F-0394
+C:.
+|   .gitignore
+|   .Rhistory
+|   bootstrap.py
+|   bootstrap_utils.py
+|   Interpretation dataset.py
+|   Interpretation Model.R
+|   ML_models.py
+|   output.txt
+|   Pre-processing.py
+|   README.md
+|   Result Analysis.py
+|   Results.xlsx
+|   stats_tests_bootstrap.R
+|   Train_test PBMC10k.py
+|   Utils.py
+|   
++---Data
+|   +---B cell lymphoma
+|   |   |   comb_f1_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   comb_f1_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   comb_f1_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   comb_f1_overall_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   comb_f1_overall_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   comb_f1_overall_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   comb_pap_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   comb_pap_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   comb_pap_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   Experimental cell types.csv
+|   |   |   lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5
+|   |   |   Markers_2.csv
+|   |   |   Original Cell Types.csv
+|   |   |   QC-bcell.h5mu
+|   |   |   rna Cell Types 1.csv
+|   |   |   rna_f1_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   rna_f1_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   rna_f1_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   rna_f1_overall_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   rna_f1_overall_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   rna_f1_overall_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   rna_pap_cancer_LogisticRegression_PCA_rna_All_35.pkl
+|   |   |   rna_pap_cancer_RandomForestClassifier_PCA_rna_All_35.pkl
+|   |   |   rna_pap_cancer_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|   |   |   wnn Cell Types 1.csv
+|   |   |   
+|   |   +---Bootstrap_X
+|   |   |       X_test_PCA_0_rna.pkl
+|   |   |       X_test_PCA_0_wnnL1.pkl
+|   |   |       X_test_PCA_1_rna.pkl
+|   |   |       X_test_PCA_2_rna.pkl
+|   |   |       X_test_PCA_3_rna.pkl
+|   |   |       X_test_PCA_4_rna.pkl
+|   |   |       X_test_PCA_5_rna.pkl
+|   |   |       X_test_PCA_6_rna.pkl
+|   |   |       X_test_PCA_7_rna.pkl
+|   |   |       X_test_PCA_8_rna.pkl
+|   |   |       X_test_PCA_9_rna.pkl
+|   |   |       X_train_PCA_0_rna.pkl
+|   |   |       X_train_PCA_0_wnnL1.pkl
+|   |   |       X_train_PCA_1_rna.pkl
+|   |   |       X_train_PCA_2_rna.pkl
+|   |   |       X_train_PCA_3_rna.pkl
+|   |   |       X_train_PCA_4_rna.pkl
+|   |   |       X_train_PCA_5_rna.pkl
+|   |   |       X_train_PCA_6_rna.pkl
+|   |   |       X_train_PCA_7_rna.pkl
+|   |   |       X_train_PCA_8_rna.pkl
+|   |   |       X_train_PCA_9_rna.pkl
+|   |   |       
+|   |   \---Bootstrap_y
+|   |           y_test_PCA_0_rna.pkl
+|   |           y_test_PCA_0_wnnL1.pkl
+|   |           y_test_PCA_1_rna.pkl
+|   |           y_test_PCA_2_rna.pkl
+|   |           y_test_PCA_3_rna.pkl
+|   |           y_test_PCA_4_rna.pkl
+|   |           y_test_PCA_5_rna.pkl
+|   |           y_test_PCA_6_rna.pkl
+|   |           y_test_PCA_7_rna.pkl
+|   |           y_test_PCA_8_rna.pkl
+|   |           y_test_PCA_9_rna.pkl
+|   |           y_train_PCA_0_rna.pkl
+|   |           y_train_PCA_0_wnnL1.pkl
+|   |           y_train_PCA_1_rna.pkl
+|   |           y_train_PCA_2_rna.pkl
+|   |           y_train_PCA_3_rna.pkl
+|   |           y_train_PCA_4_rna.pkl
+|   |           y_train_PCA_5_rna.pkl
+|   |           y_train_PCA_6_rna.pkl
+|   |           y_train_PCA_7_rna.pkl
+|   |           y_train_PCA_8_rna.pkl
+|   |           y_train_PCA_9_rna.pkl
+|   |           
+|   +---Figures
+|   |       Figure 1 (UMAPs).jpg
+|   |       Figure 1 (UMAPs).png
+|   |       Figure 2 (Algs) Annotated.jpg
+|   |       Figure 2 (Algs) Annotated.png
+|   |       Figure 2 (Algs) Oral.jpg
+|   |       Figure 2 (Algs).png
+|   |       Figure 3 (Cell types).jpg
+|   |       Figure 3 (Cell types).png
+|   |       Figure 3 (PAP Scores).png
+|   |       Figure 4 (F1 Scores).png
+|   |       Figure 5 (Interpret).jpg
+|   |       Figure 5 (Interpret).png
+|   |       Figure 6 (GTs).png
+|   |       Oral Pres UMAP.jpg
+|   |       Picture9.jpg
+|   |       Sup fig conf.jpg
+|   |       Sup fig UMAPs.jpg
+|   |       
+|   \---PBMC 10k multiomic
+|       |   comb_f1_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_f1_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_f1_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_f1_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_f1_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_f1_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_f1_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_pap_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_pap_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_pap_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_pap_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_pap_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_precision_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_precision_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_precision_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_precision_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_precision_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_precision_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_recall_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   comb_recall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   comb_recall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   comb_recall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   comb_recall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   comb_recall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   PBMC-10K-celltype.txt
+|       |   pbmc_filtered.h5
+|       |   QC-pbmc10k.h5mu
+|       |   rna_f1_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_f1_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_f1_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_f1_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_f1_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_f1_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_f1_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_pap_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_pap_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_pap_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_pap_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_pap_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_precision_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_precision_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_precision_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_precision_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_precision_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_precision_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_recall_overall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_overall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_LogisticRegression_PCA_rna_All_35.pkl
+|       |   rna_recall_pbmc_LogisticRegression_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_LogisticRegression_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_LogisticRegression_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_LogisticRegression_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_PCA_rna_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_scVI_rna_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_RandomForestClassifier_scVI_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_SVC_PCA_rna_All_35.pkl
+|       |   rna_recall_pbmc_SVC_PCA_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_SVC_PCA_wnnL2_All_35.pkl
+|       |   rna_recall_pbmc_SVC_scVI_rna_All_35.pkl
+|       |   rna_recall_pbmc_SVC_scVI_wnnL1_All_35.pkl
+|       |   rna_recall_pbmc_SVC_scVI_wnnL2_All_35.pkl
+|       |   WNN-PBMC-10K-celltype.txt
+|       |   WNNL1-PBMC-10K-celltype.csv
+|       |   WNNL2-PBMC-10K-celltype.csv
+|       |   y_test.npy
+|       |   y_test_mjr.npy
+|       |   y_test_wnn.npy
+|       |   y_test_wnnL2.npy
+|       |   y_train.npy
+|       |   y_train_mjr.npy
+|       |   y_train_wnn.npy
+|       |   y_train_wnnL2.npy
+|       |   
+|       +---Bootstrap_X
+|       |       X_test_PCA_0.pkl
+|       |       X_test_PCA_1.pkl
+|       |       X_test_PCA_2.pkl
+|       |       X_test_PCA_3.pkl
+|       |       X_test_PCA_4.pkl
+|       |       X_test_PCA_5.pkl
+|       |       X_test_PCA_6.pkl
+|       |       X_test_PCA_7.pkl
+|       |       X_test_PCA_8.pkl
+|       |       X_test_PCA_9.pkl
+|       |       X_test_scVI_0.pkl
+|       |       X_test_scVI_1.pkl
+|       |       X_test_scVI_2.pkl
+|       |       X_test_scVI_3.pkl
+|       |       X_test_scVI_4.pkl
+|       |       X_test_scVI_5.pkl
+|       |       X_test_scVI_6.pkl
+|       |       X_test_scVI_7.pkl
+|       |       X_test_scVI_8.pkl
+|       |       X_test_scVI_9.pkl
+|       |       X_train_PCA_0.pkl
+|       |       X_train_PCA_1.pkl
+|       |       X_train_PCA_2.pkl
+|       |       X_train_PCA_3.pkl
+|       |       X_train_PCA_4.pkl
+|       |       X_train_PCA_5.pkl
+|       |       X_train_PCA_6.pkl
+|       |       X_train_PCA_7.pkl
+|       |       X_train_PCA_8.pkl
+|       |       X_train_PCA_9.pkl
+|       |       X_train_scVI_0.pkl
+|       |       X_train_scVI_1.pkl
+|       |       X_train_scVI_2.pkl
+|       |       X_train_scVI_3.pkl
+|       |       X_train_scVI_4.pkl
+|       |       X_train_scVI_5.pkl
+|       |       X_train_scVI_6.pkl
+|       |       X_train_scVI_7.pkl
+|       |       X_train_scVI_8.pkl
+|       |       X_train_scVI_9.pkl
+|       |       
+|       +---Bootstrap_y
+|       |       y_test_PCA_0.pkl
+|       |       y_test_PCA_1.pkl
+|       |       y_test_PCA_2.pkl
+|       |       y_test_PCA_3.pkl
+|       |       y_test_PCA_4.pkl
+|       |       y_test_PCA_5.pkl
+|       |       y_test_PCA_6.pkl
+|       |       y_test_PCA_7.pkl
+|       |       y_test_PCA_8.pkl
+|       |       y_test_PCA_9.pkl
+|       |       y_test_scVI_0.pkl
+|       |       y_test_scVI_1.pkl
+|       |       y_test_scVI_2.pkl
+|       |       y_test_scVI_3.pkl
+|       |       y_test_scVI_4.pkl
+|       |       y_test_scVI_5.pkl
+|       |       y_test_scVI_6.pkl
+|       |       y_test_scVI_7.pkl
+|       |       y_test_scVI_8.pkl
+|       |       y_test_scVI_9.pkl
+|       |       y_train_PCA_0.pkl
+|       |       y_train_PCA_1.pkl
+|       |       y_train_PCA_2.pkl
+|       |       y_train_PCA_3.pkl
+|       |       y_train_PCA_4.pkl
+|       |       y_train_PCA_5.pkl
+|       |       y_train_PCA_6.pkl
+|       |       y_train_PCA_7.pkl
+|       |       y_train_PCA_8.pkl
+|       |       y_train_PCA_9.pkl
+|       |       y_train_scVI_0.pkl
+|       |       y_train_scVI_1.pkl
+|       |       y_train_scVI_2.pkl
+|       |       y_train_scVI_3.pkl
+|       |       y_train_scVI_4.pkl
+|       |       y_train_scVI_5.pkl
+|       |       y_train_scVI_6.pkl
+|       |       y_train_scVI_7.pkl
+|       |       y_train_scVI_8.pkl
+|       |       y_train_scVI_9.pkl
+|       |       
+|       +---Final Results
+|       |       ATAC weights.png
+|       |       Bootstrap0 conf matrix SVM scVI COMB.png
+|       |       Bootstrap0 conf matrix SVM scVI RNA.png
+|       |       Cell type PAP.png
+|       |       Cell type scvi svm.png
+|       |       Ground Truth.png
+|       |       Heatmap.png
+|       |       PCA sil.png
+|       |       scVI sil.png
+|       |       Silhouette scores.png
+|       |       UMAP PCA COMB.png
+|       |       UMAP PCA RNA.png
+|       |       UMAP scVI COMB.png
+|       |       UMAP scVI RNA.png
+|       |       
+|       +---Interpretation
+|       |       X_.csv
+|       |       X_y.csv
+|       |       y_.csv
+|       |       
+|       +---processed_data
+|       |   |   pre-proc_mdata_test.h5mu
+|       |   |   pre-proc_mdata_train.h5mu
+|       |   |   processed_data.zip
+|       |   |   
+|       |   +---Dim_Red
+|       |   |       CCA_mdata_test.h5mu
+|       |   |       CCA_mdata_train.h5mu
+|       |   |       scvi_mdata_test.h5mu
+|       |   |       scvi_mdata_test_35.h5mu
+|       |   |       scvi_mdata_train.h5mu
+|       |   |       scvi_mdata_train_35.h5mu
+|       |   |       unann_mdata_test.h5mu
+|       |   |       unann_mdata_test_RAW.h5mu
+|       |   |       unann_mdata_train.h5mu
+|       |   |       unann_mdata_train_RAW.h5mu
+|       |   |       
+|       |   +---PCA
+|       |   |       PCA_mdata_test.h5mu
+|       |   |       PCA_mdata_train.h5mu
+|       |   |       
+|       |   \---X_Matrices
+|       |           Xcca_test_35.pkl
+|       |           Xcca_train_35.pkl
+|       |           Xpca_test.pkl
+|       |           Xpca_test_15.pkl
+|       |           Xpca_test_20.pkl
+|       |           Xpca_test_25.pkl
+|       |           Xpca_test_30.pkl
+|       |           Xpca_test_35.pkl
+|       |           Xpca_test_35_RAW.pkl
+|       |           Xpca_test_35_wnn.pkl
+|       |           Xpca_test_40.pkl
+|       |           Xpca_test_45.pkl
+|       |           Xpca_test_50.pkl
+|       |           Xpca_test_mjr.pkl
+|       |           Xpca_test_RAW.pkl
+|       |           Xpca_train.pkl
+|       |           Xpca_train_15.pkl
+|       |           Xpca_train_20.pkl
+|       |           Xpca_train_25.pkl
+|       |           Xpca_train_30.pkl
+|       |           Xpca_train_35.pkl
+|       |           Xpca_train_35_RAW.pkl
+|       |           Xpca_train_35_wnn.pkl
+|       |           Xpca_train_40.pkl
+|       |           Xpca_train_45.pkl
+|       |           Xpca_train_50.pkl
+|       |           Xpca_train_mjr.pkl
+|       |           Xpca_train_RAW.pkl
+|       |           XscVI_test_10.pkl
+|       |           XscVI_test_35.pkl
+|       |           XscVI_test_35_wnn.pkl
+|       |           XscVI_train_10.pkl
+|       |           XscVI_train_35.pkl
+|       |           XscVI_train_35_wnn.pkl
+|       |           
+|       \---Silhouette Scores
+|               silhouette_scores_PCA.csv
+|               silhouette_scores_scVI.csv
+|               
++---Lab Notebooks
+|       Analyzing embeddings 14-08-23.ipynb
+|       Annotating Lymphoma.ipynb
+|       Bootstrap 10-20 OK run PBMC10k 04-08-23.ipynb
+|       Bootstrap PBMC10k 28-07-23.ipynb
+|       Bootstrap Svised fail_run PBMC10k 02-08-23.ipynb
+|       CCA process PBMC10k 04-07-23.ipynb
+|       CDFs PBMC10k 17-07-23.ipynb
+|       Feat Imp PBMC10k 14-07-23.ipynb
+|       FINAL RESULT WNNL1 AND RNA.ipynb
+|       FINAL RESULT WNNL2.ipynb
+|       Final UMAPs.ipynb
+|       Initial run Lymphoma 03-08-23.ipynb
+|       LOF, UMAP & PCA Variants PBMC10k 10-07-23.ipynb
+|       Lymphoma ML runs.ipynb
+|       Metric Analysis 16-08-23.ipynb
+|       Metric Analysis 17-08-23.ipynb
+|       PCA_35_raw PBMC10k 18-07-23.ipynb
+|       PCA_Supervised 28-06-23.ipynb
+|       PCA_Supervised New Lables PBMC10K 07-07-23.ipynb
+|       PCA_supervised_fixed PBMC10k 03-07-23.ipynb
+|       PCA_Supervised_fixed PBMC10k 06-07-23.ipynb
+|       Per-class metrics PBMC10k 25-07-23.ipynb
+|       Pre-processing PBMC10k 21-6-23.ipynb
+|       Preventing scale leakage PBMC10K 05-07-23.ipynb
+|       Preventing scale leakage PBMC10K 06-07-23.ipynb
+|       QC Lymphoma 01-08-23.ipynb
+|       QC pbmc10k 20-6-23.ipynb
+|       scVI 10 PBMC10k 16-07-23.ipynb
+|       scVI Initial PBMC10k 13-07-23.ipynb
+|       SHAP & initial autoencode PBMC10k 12-07-23.ipynb
+|       Subtypes ML PBMC10k 26-07-23.ipynb
+|       Subtypes ML pt2 PBMC10k 27-07-23.ipynb
+|       SVM+log_reg bootstrap PBMC10k 06-08-23.ipynb
+|       UMAPs PBMC10k 07-07-23.ipynb
+|       Vary PC Num Outputs PBMC10k 11-07-23.ipynb
+|       WNN annon PBMC10k 19-07-23.ipynb
+|       WNN Lymphoma 08-08-23.ipynb
+|       WNN Models PBMC10k 20-07-23.ipynb
+|       WNN pt2 Lymphoma 09-08-23.ipynb
+|       WNNl1 and rna run 17-08-23.ipynb
+|       WNN_L2 PBMC10k 24-07-23.ipynb
+|       
++---Supervised Models
+|   |   Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Precision_class_df.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Precision_class_df_rna.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Recall_class_df.csv
+|   |   Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Recall_class_df_rna.csv
+|   |   Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_SVC_PCA_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_SVC_PCA_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_SVC_PCA_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_SVC_PCA_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_F1_df.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_F1_df_rna.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_PAP_df.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_PAP_df_rna.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_Precision_class_df.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_Precision_class_df_rna.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_Recall_class_df.csv
+|   |   Results_pbmc_SVC_scVI_wnnL2_All_35_Recall_class_df_rna.csv
+|   |   
+|   +---CCA
+|   +---Macro Metrics
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_PCA_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_LogisticRegression_scVI_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_PCA_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_RandomForestClassifier_scVI_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_SVC_PCA_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_F1_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_rna_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_F1_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL1_All_35_Recall_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_F1_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_F1_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_Precision_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_Precision_overall_df_rna.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_Recall_overall_df.csv
+|   |       Results_pbmc_SVC_scVI_wnnL2_All_35_Recall_overall_df_rna.csv
+|   |       
+|   +---PCA
+|   |       LOGREG.pickle
+|   |       LOGREG_Predictions.pickle
+|   |       LOGREG_RNA_only.pickle
+|   |       LOGREG_RNA_only_Predictions.pickle
+|   |       RF.pickle
+|   |       RF_Predictions.pickle
+|   |       RF_RNA_only.pickle
+|   |       RF_RNA_only_Predictions.pickle
+|   |       SVM.pickle
+|   |       SVM_Predictions.pickle
+|   |       SVM_RNA_only.pickle
+|   |       SVM_RNA_only_Predictions.pickle
+|   |       
+|   +---PCA MINOR
+|   |       RF_RNA_only_wnnL2_All_35.pickle
+|   |       RF_RNA_only_wnnL2_All_35_F1_df.csv
+|   |       RF_RNA_only_wnnL2_All_35_PAP_df.csv
+|   |       RF_RNA_only_wnnL2_All_35_Predictions.pickle
+|   |       RF_wnnL2_All_35.pickle
+|   |       RF_wnnL2_All_35_F1_df.csv
+|   |       RF_wnnL2_All_35_PAP_df.csv
+|   |       RF_wnnL2_All_35_Predictions.pickle
+|   |       
+|   +---Saved Models
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_0.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_1.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_2.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_3.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_4.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_5.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_6.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_7.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_8.pickle
+|   |       Model_pbmc_SVC_scVI_wnnL2_All_35_comb_9.pickle
+|   |       
+|   \---scVI
+|           SVM_RNA_only_wnnL2_B cells_35.pickle
+|           SVM_RNA_only_wnnL2_B cells_35_F1_df.csv
+|           SVM_RNA_only_wnnL2_B cells_35_PAP_df.csv
+|           SVM_RNA_only_wnnL2_B cells_35_Predictions.pickle
+|           SVM_RNA_only_wnnL2_Monoblast-Derived_35.pickle
+|           SVM_RNA_only_wnnL2_Monoblast-Derived_35_F1_df.csv
+|           SVM_RNA_only_wnnL2_Monoblast-Derived_35_PAP_df.csv
+|           SVM_RNA_only_wnnL2_Monoblast-Derived_35_Predictions.pickle
+|           SVM_RNA_only_wnnL2_T cells_35.pickle
+|           SVM_RNA_only_wnnL2_T cells_35_F1_df.csv
+|           SVM_RNA_only_wnnL2_T cells_35_PAP_df.csv
+|           SVM_RNA_only_wnnL2_T cells_35_Predictions.pickle
+|           SVM_wnnL2_B cells_35.pickle
+|           SVM_wnnL2_B cells_35_F1_df.csv
+|           SVM_wnnL2_B cells_35_PAP_df.csv
+|           SVM_wnnL2_B cells_35_Predictions.pickle
+|           SVM_wnnL2_Monoblast-Derived_35.pickle
+|           SVM_wnnL2_Monoblast-Derived_35_F1_df.csv
+|           SVM_wnnL2_Monoblast-Derived_35_PAP_df.csv
+|           SVM_wnnL2_Monoblast-Derived_35_Predictions.pickle
+|           SVM_wnnL2_T cells_35.pickle
+|           SVM_wnnL2_T cells_35_F1_df.csv
+|           SVM_wnnL2_T cells_35_PAP_df.csv
+|           SVM_wnnL2_T cells_35_Predictions.pickle
+|           
+\---__pycache__
+        bootstrap_utils.cpython-39.pyc
+        Utils.cpython-39.pyc
+        

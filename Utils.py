@@ -1084,17 +1084,28 @@ def visualise_embeddings(features, labels):
         y=embedding[:, 1],
         hue=labels,
         palette=sns.color_palette("Paired", len(np.unique(labels))),
-        legend="full",
+        legend=False,
         alpha=0.6
     )
     # Using adjustText
     unique_labels = np.unique(labels)
+
+    # Remove legend
+    ax.legend().remove()
+    
+    # Remove axis labels
+    ax.set_xlabel('')  # No x-axis label
+    ax.set_ylabel('')  # No y-axis label
+    
+    # Optionally, remove ticks from the axes
+    ax.set(xticklabels=[], yticklabels=[])
+
     texts = []
     for label in unique_labels:
         # Take the mean of x and y coordinates for each cluster
         mean_x = np.mean(embedding[labels == label, 0])
         mean_y = np.mean(embedding[labels == label, 1])
-        texts.append(plt.text(mean_x, mean_y, str(label), fontsize=12, fontweight='bold'))
+        texts.append(plt.text(mean_x, mean_y, str(label), fontsize=16, fontweight='bold'))
 
     adjust_text(texts, ax=ax, expand_points=(1.5, 1.5), expand_text=(1, 1), force_points=0.2,
                 arrowprops=dict(arrowstyle='->', color='black', lw=1))

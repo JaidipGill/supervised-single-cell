@@ -214,7 +214,7 @@ p <- ggplot(df_long_plot, aes(x = `Cell Type`, y = Value, color = Model)) +
   geom_boxplot(position = "dodge") +
   facet_wrap(~ Metric) +
   labs(x = NULL, y = "Value", fill = "Model") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 55, hjust = 1, size=13)) +
   scale_color_brewer(palette="Set1")
 
 print(p)
@@ -302,7 +302,7 @@ df_long <- df_combined %>%
 p <- ggplot(df_long, aes(x = `Cell Type`, y = Value, color = Model)) +
   geom_boxplot(position = "dodge") +
   labs(x = "Cell Type", y = "PAP Score", fill = "Model") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 13)) +
   scale_color_brewer(palette="Set1") +
   theme(legend.position = "none")
 
@@ -375,7 +375,8 @@ p <- ggplot(df_combined, aes(x = Classifier, y = `0`, color = Model)) +
   geom_boxplot(position = "dodge") +
   facet_nested(.~Embedding + Metric, scales="free") + 
   labs(x = "Classifier", y = "Score", fill = "Model") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 14)) +
+  theme(axis.text.y = element_text(size = 13)) +
   scale_color_brewer(palette="Set1")
 
 print(p)

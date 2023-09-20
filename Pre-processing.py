@@ -9,38 +9,6 @@ from muon import atac as ac
 import Utils as ut
 from importlib import reload
 
-'''
-#CONVERTING MATRIX DIRECTORY TO MUDATA FORMAT
-# Load the .mtx file
-matrix = scipy.io.mmread('Data/PBMC 10k multiomic/filtered_feature_bc_matrix/matrix.mtx.gz')
-# Load barcodes file
-barcodes = pd.read_csv('Data/PBMC 10k multiomic/filtered_feature_bc_matrix/barcodes.tsv.gz', header=None, sep='\t')
-# Load genes file
-features = pd.read_csv('Data/PBMC 10k multiomic/filtered_feature_bc_matrix/features.tsv.gz', header=None, sep='\t')
-
-# Split the features into genes and peaks based on the type column
-genes = features[features[2] == 'Gene Expression']
-peaks = features[features[2] == 'Peaks']
-
-# Split the matrix into two based on the features
-matrix = matrix.tocsr()  # Convert to CSR format for efficient row slicing
-rna_matrix = matrix[genes.index, :]
-atac_matrix = matrix[peaks.index, :]
-# Transpose the matrices
-rna_matrix = rna_matrix.transpose()
-atac_matrix = atac_matrix.transpose()
-
-# Create two separate AnnData objects
-rna = ad.AnnData(X=rna_matrix, obs=barcodes, var=genes)
-atac = ad.AnnData(X=atac_matrix, obs=barcodes, var=peaks)
-# Combine the AnnData objects into a MuData object
-mdata = mu.MuData({'rna': rna, 'atac': atac})
-#mdata['atac'].var_names = [f"Peak_{i:d}" for i in range(mdata['atac'].n_vars)]
-#mdata['rna'].var_names = [f"Gene_{i:d}" for i in range(mdata['rna'].n_vars)]
-mdata['rna'].var_names = mdata['rna'].var[1]
-mdata['atac'].var_names = mdata['atac'].var[1]
-print(mdata.obs_names[:10])
-'''
 # %% ----------------------------------------------------------------
 # CONFIGURATION
 

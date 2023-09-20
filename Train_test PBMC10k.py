@@ -56,13 +56,6 @@ mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/pre-proc_mdat
 mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/pre-proc_mdata_test.h5mu")
 
 # %% ----------------------------------------------------------------
-# DIMENSIONALITY REDUCTION - CCA
-
-sample_train = mu.pp.sample_obs(mdata_train,0.1)[:,0:30000]
-sample_test = mu.pp.sample_obs(mdata_test,0.1)[:,0:30000]
-
-sample_train, sample_test = ut.perform_cca(sample_train, sample_test, n_components=50)
-# %% ----------------------------------------------------------------
 # DIMENSIONALITY REDUCTION - PCA
 
 mdata_train, mdata_test, pca = ut.perform_pca(mdata_train, mdata_test, raw=False, components = 50)
@@ -88,11 +81,6 @@ mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/scvi_m
 mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_train.h5mu")
 mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/unann_mdata_test.h5mu")
 
-# %%
-# LOAD DIMENSIOANLITY REDUCTION - CCA
-
-mdata_train = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/CCA_mdata_train.h5mu")
-mdata_test = mu.read_h5mu("Data/PBMC 10k multiomic/processed_data/Dim_Red/CCA_mdata_test.h5mu")
 # %% ----------------------------------------------------------------
 # ADDING ANNOTATIONS
 

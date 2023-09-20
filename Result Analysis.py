@@ -133,13 +133,13 @@ for i in range(0,3):
 
 # %%
 # Loading bootstrap sample
-for EMBEDDING in ['PCA', 'scVI']: # Iterate through embeddings
+for EMBEDDING in ['scVI']: # Iterate through embeddings
     FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = boot.load_boot(0, 0, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX)
 
     #embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
     #embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
-    embedding = ut.visualise_embeddings(FEATURES_RNA_TEST, LABELS_TEST)
-    embedding = ut.visualise_embeddings(FEATURES_COMB_TEST, LABELS_TEST)
+    embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
+    embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
 
 # %% ----------------------------------------------------------------
 # FIND MEAN AND STD OF NUMBER OF EACH CELL TYPE PER BOOTSTRAP FOR TRAIN AND TEST
@@ -191,6 +191,7 @@ X_train = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_train_scVI_0.pkl
 X_test = pd.read_pickle('Data\PBMC 10k multiomic\Bootstrap_X\X_test_scVI_0.pkl')
 rna_sums, atac_sums, shap_vals = ut.feature_importance(model_cl, X_train = X_train[:100], X_test=X_test[:500])
 
+'''
 # %% ----------------------------------------------------------------
 # EXTRACT FEATURE IMPORTANCE FOR EACH CELL TYPE
 
@@ -218,7 +219,7 @@ for i, peak in enumerate(atac_peaks):
     peak_to_gene[peak] = closest_gene
 mdata.obs['peak_to_gene'] = peak_to_gene
 print(mdata.obs['peak_to_gene'][1000])
-
+'''
 # %% ----------------------------------------------------------------
 # GENERATE CSV FOR R LOG REG
 
