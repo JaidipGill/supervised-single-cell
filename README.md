@@ -40,7 +40,7 @@ Experimentally Integrated ATAC/RNA dataset
 
 ## Files
 
-The pipeline can be run by:
+The pipeline can be run as follows:
 1. Download [PBMC 10K Data](https://www.10xgenomics.com/resources/datasets/pbmc-from-a-healthy-donor-granulocytes-removed-through-cell-sorting-10-k-1-standard-1-0-0) and place in 'PBMC 10k multiomic' folder
 1. QC of feature-barcode matrix + ground truth annotation -> **Pre-processing.py**
 2. Generation of bootstrap X and y datasets -> **boostrap.py**
