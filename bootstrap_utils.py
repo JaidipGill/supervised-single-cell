@@ -90,6 +90,15 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
         annotations_wnn1 = pd.read_csv('Data/PBMC 10k multiomic/WNNL1-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         annotations_wnn2 = pd.read_csv('Data/PBMC 10k multiomic/WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         ann_list= [annotations_rna, annotations_wnn1, annotations_wnn2]
+    elif data == 'AD':
+        annotations_wnn1 = pd.read_csv('Data\Alz multiomic\GSE214979_cell_metadata.csv')
+        # Set the index to be the cell barcode
+        annotations_wnn1.set_index('Unnamed: 0', inplace=True)
+        annotations_wnn1.index.rename('index', inplace=True)
+        # Drop all columns except cell type and index
+        annotations_wnn1 = annotations_wnn1[['predicted.id']]
+        annotations_wnn1 = annotations_wnn1.rename(columns={'predicted.id': 'x'})
+        ann_list = [annotations_wnn1]
     for idx, annotations in enumerate(ann_list):
         # Take intersection of cell barcodes in annotations and mdata
         print(annotations)
@@ -152,10 +161,12 @@ def load_boot(i, N, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_C
             col = '0'
     elif DATA == 'cancer':
         col = '0'
-        noise = np.random.normal(loc=0, scale=0.5, size=X_train.shape)
-        X_train = X_train + noise
-        noise = np.random.normal(loc=0, scale=0.5, size=X_test.shape)
-        X_test = X_test + noise
+        #noise = np.random.normal(loc=0, scale=0.5, size=X_train.shape)
+        #X_train = X_train + noise
+        #noise = np.random.normal(loc=0, scale=0.5, size=X_test.shape)
+        #X_test = X_test + noise
+    elif DATA == 'AD':
+        col = '0'
     y_train = y_train[col]
     y_test = y_test[col]
     # Create DataFrame from X_train and X_test

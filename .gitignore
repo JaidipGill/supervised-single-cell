@@ -11,6 +11,7 @@
 /Data/PBMC 10k multiomic/*.pkl
 /Data/B cell lymphoma/*.pkl
 /Data/PBMC 10k multiomic/*npy
+/Data/Alz multiomic/GSE214979_filtered_feature_bc_matrix.h5
 /Lab Notebooks
 /Supervised Models/CCA
 /Supervised Models/scVI

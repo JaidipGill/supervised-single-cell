@@ -32,12 +32,12 @@ rf=RandomForestClassifier(random_state=42, class_weight='balanced')
 svm_model=svm.SVC(random_state=42, class_weight='balanced')
 log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
-EMBEDDING = 'scVI' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'wnnL2' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
+EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
+GROUND_TRUTH = 'wnnL1' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna   AD: wnnL2
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = rf # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
-DATA = 'pbmc' # Choose from: pbmc, cancer
+DATA = 'AD' # Choose from: pbmc, cancer, AD
 
 if DATA == 'pbmc':
     INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
@@ -50,6 +50,9 @@ elif DATA == 'cancer':
         GROUND_TRUTH_SUFFIX = '_wnnL1'
     elif GROUND_TRUTH == 'rna':
         GROUND_TRUTH_SUFFIX = '_rna'
+elif DATA == 'AD':
+    INPUT_ADDRESS = "Alz multiomic/GSE214979_filtered_feature_bc_matrix.h5"
+    GROUND_TRUTH_SUFFIX = '_wnnL2'
 if EMBEDDING == 'PCA':
     OBSM = 'X_pca'
 elif EMBEDDING == 'CCA':
@@ -61,21 +64,25 @@ N_COMPONENTS = 35
 # %% ----------------------------------------------------------------
 # BOOTSTRAP SAMPLES
 
-N = 10 # Number of bootstrap samples
+N = 1 # Number of bootstrap samples
 
 for i in range(0,N):
     
     # Loading QC data
-    mdata=mu.read_h5mu(f'Data/{INPUT_ADDRESS}')
+    if DATA == 'AD':
+        mdata = mu.read_10x_h5(f'Data/{INPUT_ADDRESS}')
+        mdata.var_names_make_unique()
+    else:
+        mdata = mu.read_h5mu(f'Data/{INPUT_ADDRESS}')
 
     #Load annotations
-    mdata= boot.add_annon(mdata, subset=False, data=DATA, GROUND_TRUTH = GROUND_TRUTH)
+    mdata= boot.add_annon(mdata, subset=True, data=DATA, GROUND_TRUTH = GROUND_TRUTH)
 
     # Bootstrap sample and pre-process without data leakage
     mdata_train, mdata_test = boot.train_test_split_mdata(mdata, seed=i)
-    mdata_train.mod['rna'] = ut.pre_process_train(mdata_train['rna'])
+    mdata_train.mod['rna'] = ut.pre_process_train(mdata_train['rna'], DATA)
     mdata_test.mod['rna'] = ut.pre_process_test(mdata_test['rna'], mdata_train['rna'])
-    mdata_train.mod['atac'] = ut.pre_process_train(mdata_train['atac'])
+    mdata_train.mod['atac'] = ut.pre_process_train(mdata_train['atac'], DATA)
     mdata_test.mod['atac'] = ut.pre_process_test(mdata_test['atac'], mdata_train['atac'])
     print(mdata_train)
     print(mdata_test)
@@ -91,7 +98,7 @@ for i in range(0,N):
     y_test = {}
     if DATA == 'pbmc':
         labels = ['0','1','2']
-    elif DATA == 'cancer':
+    elif (DATA == 'cancer')|(DATA == 'AD'):
         labels = ['0']
     for x in labels:
         # Generating labels

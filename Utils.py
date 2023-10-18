@@ -128,14 +128,15 @@ def train_test_split_mdata(mdata_obj):
 
     return mdata_train, mdata_test
 
-def pre_process_train(adata):
+def pre_process_train(adata, data):
 
     '''
     Pre-process MuData TRAIN object for either RNA or ATAC modality
     '''
 
     # Filter out low-frequency features
-    mu.pp.filter_var(adata, 'n_cells_by_counts', lambda x: x >= 10) 
+    if (data == 'pbmc')|(data == 'cancer'):
+        mu.pp.filter_var(adata, 'n_cells_by_counts', lambda x: x >= 10) 
 
     # Saving raw counts
     adata.layers["counts"] = adata.X.copy() # Store unscaled counts in .layers["counts"] attribute
