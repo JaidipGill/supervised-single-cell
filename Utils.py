@@ -928,7 +928,7 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset):
                     'max_features' : np.array(['sqrt']),
                     'max_depth':np.array([2**2, 2**3, 2**4]),
                     'min_samples_split': np.array([3, 5, 10])}
-    elif isinstance(model, svm.SVC):
+    elif isinstance(model, SVC):
         param_grid={'C':[2**0, 2**1, 2**2, 2**3, 2**4, 2**5],
                     'kernel':['poly','rbf', 'sigmoid']}
     elif isinstance(model, LogisticRegression):
@@ -949,8 +949,8 @@ def model_test_main(model,x_train,y_train,x_test,y_test, subset):
         model=XGBClassifier(**optimal_params, random_state=42, scale_pos_weight=weights_dict)
     elif  isinstance(model, RandomForestClassifier):
         model =RandomForestClassifier(**optimal_params, random_state=42, class_weight='balanced')    
-    elif isinstance(model, svm.SVC):
-        model=svm.SVC(**optimal_params, random_state=42, probability=True, class_weight='balanced')
+    elif isinstance(model, SVC):
+        model=SVC(**optimal_params, random_state=42, probability=True, class_weight='balanced')
     elif isinstance(model, LogisticRegression):
         model=LogisticRegression(**optimal_params, random_state=42, class_weight='balanced')
     #Learning curve
@@ -1040,7 +1040,7 @@ def save_model(model_cl, location):
         model_name='rf'
     elif isinstance(model_cl,XGBClassifier):
         model_name='xgb'
-    elif isinstance(model_cl,svm.SVC):
+    elif isinstance(model_cl,SVC):
         model_name='svm'
     #Save model
     pickle.dump(model_cl, open(f'Supervised Models/Saved Models/Model_{location}.pickle', 'wb'))

@@ -91,7 +91,7 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
         annotations_wnn2 = pd.read_csv('Data/PBMC 10k multiomic/WNNL2-PBMC-10K-celltype.csv', sep='\t', header=0, index_col='index')
         ann_list= [annotations_rna, annotations_wnn1, annotations_wnn2]
     elif data == 'AD':
-        annotations_wnn1 = pd.read_csv('Data\Alz multiomic\GSE214979_cell_metadata.csv')
+        annotations_wnn1 = pd.read_csv('Data/Alz multiomic/GSE214979_cell_metadata.csv')
         # Set the index to be the cell barcode
         annotations_wnn1.set_index('Unnamed: 0', inplace=True)
         annotations_wnn1.index.rename('index', inplace=True)

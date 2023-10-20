@@ -133,7 +133,7 @@ for i in range(0,3):
 
 # %%
 # Loading bootstrap sample
-for EMBEDDING in ['scVI']: # Iterate through embeddings
+for EMBEDDING in ['PCA']: # Iterate through embeddings
     FEATURES_RNA_TRAIN, FEATURES_RNA_TEST, FEATURES_COMB_TRAIN, FEATURES_COMB_TEST, LABELS_TRAIN, LABELS_TEST = boot.load_boot(0, 0, INPUT_ADDRESS, EMBEDDING, GROUND_TRUTH, CELL_TYPE, DATA, N_COMPONENTS_TO_TEST, GROUND_TRUTH_SUFFIX)
 
     #embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
