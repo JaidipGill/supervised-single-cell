@@ -123,6 +123,8 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
 
         # Count number of NAs in cell_type column
         print(f"Cell_type {idx} NAs: {mdata.obs[f'cell_type{idx}'].isna().sum()}")
+        mu.pp.filter_obs(mdata['rna'], f'cell_type{idx}', lambda x: pd.notna(x))
+        print(f"Filtered: Cell_type {idx} NAs: {mdata['rna'].obs[f'cell_type{idx}'].isna().sum()}")
     '''
     if data == 'cancer':
         # Get the cell type annotations
