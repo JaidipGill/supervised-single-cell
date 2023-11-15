@@ -37,7 +37,7 @@ GROUND_TRUTH = 'wnnL2' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = rf # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
-DATA = 'pbmc' # Choose from: pbmc, cancer
+DATA = 'AD' # Choose from: pbmc, cancer
 
 if DATA == 'pbmc':
     INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
@@ -50,6 +50,10 @@ elif DATA == 'cancer':
         GROUND_TRUTH_SUFFIX = '_wnnL1'
     elif GROUND_TRUTH == 'rna':
         GROUND_TRUTH_SUFFIX = '_rna'
+elif DATA == 'AD':
+    INPUT_ADDRESS = "Alz multiomic/GSE214979_filtered_feature_bc_matrix.h5"
+    GROUND_TRUTH_SUFFIX = '_wnnL2'
+    OUTCOME = 'multi'
 if EMBEDDING == 'PCA':
     OBSM = 'X_pca'
 elif EMBEDDING == 'CCA':
@@ -138,7 +142,9 @@ for EMBEDDING in ['PCA']: # Iterate through embeddings
 
     #embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
     #embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
+    print('RNA only viz:')
     embedding = ut.visualise_embeddings(FEATURES_RNA_TRAIN, LABELS_TRAIN)
+    print('COMB viz:')
     embedding = ut.visualise_embeddings(FEATURES_COMB_TRAIN, LABELS_TRAIN)
 
 # %% ----------------------------------------------------------------

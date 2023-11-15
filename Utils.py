@@ -43,11 +43,14 @@ from adjustText import adjust_text
 # FUNCTIONS
 
 
-def quality_control(input_file, output_file, lower_unique_peaks, upper_unique_peaks, lower_total_peaks, upper_total_peaks):
+def quality_control(data, input_file, output_file, upper_genes, total_counts, lower_unique_peaks, upper_unique_peaks, lower_total_peaks, upper_total_peaks):
     '''
     Quality control of RNA and ATAC components of an mdata object
     '''
-    mdata = mu.read_10x_h5(input_file)
+    if data == 'AD':
+        mdata = mu.read_h5mu(input_file)
+    else:
+        mdata = mu.read_10x_h5(input_file)
     mdata.var_names_make_unique()
 
     #EDA - GENERAL
@@ -69,10 +72,10 @@ def quality_control(input_file, output_file, lower_unique_peaks, upper_unique_pe
     #FILTERING - RNA
     #Filtering out cells 
     print(mdata['rna'].n_obs)
-    mu.pp.filter_obs(mdata['rna'], 'n_genes_by_counts', lambda x: (x >= 500) & (x < 5000))
+    mu.pp.filter_obs(mdata['rna'], 'n_genes_by_counts', lambda x: (x >= 500) & (x < upper_genes))
     print(mdata['rna'].n_obs)
     #Filtering out cells with more than 15000 counts (e.g. doublets)
-    mu.pp.filter_obs(mdata['rna'], 'total_counts', lambda x: x < 15000)
+    mu.pp.filter_obs(mdata['rna'], 'total_counts', lambda x: x < total_counts)
     print(mdata['rna'].n_obs)
     #Filtering out cells with more than 20% mitochondrial genes
     mu.pp.filter_obs(mdata['rna'], 'pct_counts_mt', lambda x: x < 20)
@@ -135,7 +138,7 @@ def pre_process_train(adata, data):
     '''
 
     # Filter out low-frequency features
-    if (data == 'pbmc')|(data == 'cancer'):
+    if data == 'pbmc':
         mu.pp.filter_var(adata, 'n_cells_by_counts', lambda x: x >= 10) 
 
     # Saving raw counts

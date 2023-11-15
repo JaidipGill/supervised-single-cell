@@ -12,22 +12,34 @@ from importlib import reload
 # %% ----------------------------------------------------------------
 # CONFIGURATION
 
-DATA = 'cancer' # 'pbmc' or 'cancer'
+DATA = 'AD' # 'pbmc' or 'cancer' or 'AD
 
 if DATA == 'pbmc':
     RAW = 'Data/PBMC 10k multiomic/pbmc_filtered.h5'
     QC = 'Data/PBMC 10k multiomic/QC-pbmc10k.h5mu'
+    UPPER_GENES = 5000
+    UPPER_UNIQUE_PEAKS = 15000
+    TOTAL_COUNTS = 15000
 elif DATA == 'cancer':
     RAW = 'Data/B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5'
     QC = 'Data/B cell lymphoma/QC-bcell.h5mu'
+    UPPER_GENES = 5000
+    UPPER_UNIQUE_PEAKS = 15000
+    TOTAL_COUNTS = 15000
+elif DATA == 'AD':
+    RAW = "Data/Alz multiomic/Downsampled10%_matrix.h5mu"
+    QC = 'Data/Alz multiomic/Downsampled10%_matrix_processed.h5mu'
+    UPPER_GENES = 10000
+    UPPER_UNIQUE_PEAKS = 25000
+    TOTAL_COUNTS = 25000
 
 # %% ----------------------------------------------------------------
 # Quality Control
 
-ut.quality_control(input_file = RAW, output_file = QC, upper_unique_peaks = 15000, lower_unique_peaks=2000, lower_total_peaks=4000, upper_total_peaks=40000)
+ut.quality_control(data = DATA, input_file = RAW, upper_genes = UPPER_GENES, total_counts = TOTAL_COUNTS, output_file = QC, upper_unique_peaks = UPPER_UNIQUE_PEAKS, lower_unique_peaks=2000, lower_total_peaks=4000, upper_total_peaks=40000)
 
 # %% ----------------------------------------------------------------
-# LOAD DATA FOR RE-ANNOTATION
+# LOAD DATA FOR RE-ANNOTATION OF PBMC DATASET
 
 mdata=mu.read_h5mu(QC)
 

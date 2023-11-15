@@ -33,25 +33,27 @@ svm_model=svm.SVC(random_state=42, class_weight='balanced')
 log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
 EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'wnnL1' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna   AD: wnnL2
+GROUND_TRUTH = 'T cells' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna, T cells   AD: wnnL2
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = svm_model # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
-DATA = 'AD' # Choose from: pbmc, cancer, AD
+DATA = 'cancer' # Choose from: pbmc, cancer, AD
 
 if DATA == 'pbmc':
     INPUT_ADDRESS = "PBMC 10k multiomic/QC-pbmc10k.h5mu"
     GROUND_TRUTH_SUFFIX = ''
     OUTCOME = 'multi'
 elif DATA == 'cancer':
-    INPUT_ADDRESS = "B cell lymphoma/QC-bcell.h5mu"
+    INPUT_ADDRESS = "B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5"
     OUTCOME = 'binary'
     if GROUND_TRUTH == 'wnnL1':
         GROUND_TRUTH_SUFFIX = '_wnnL1'
     elif GROUND_TRUTH == 'rna':
         GROUND_TRUTH_SUFFIX = '_rna'
+    elif GROUND_TRUTH == 'T cells':
+        GROUND_TRUTH_SUFFIX = '_Tcells'
 elif DATA == 'AD':
-    INPUT_ADDRESS = "Alz multiomic/GSE214979_filtered_feature_bc_matrix.h5"
+    INPUT_ADDRESS = "Alz multiomic/Downsampled10%_matrix_processed.h5mu"
     GROUND_TRUTH_SUFFIX = '_wnnL2'
     OUTCOME = 'multi'
 if EMBEDDING == 'PCA':
@@ -65,19 +67,23 @@ N_COMPONENTS = 35
 # %% ----------------------------------------------------------------
 # BOOTSTRAP SAMPLES
 
-N = 10 # Number of bootstrap samples
+N = 5 # Number of bootstrap samples
 
 for i in range(0,N):
     
     # Loading QC data
     if DATA == 'AD':
+        mdata = mu.read_h5mu(f'Data/{INPUT_ADDRESS}')
+        mdata.var_names_make_unique()
+    elif DATA == 'cancer':
         mdata = mu.read_10x_h5(f'Data/{INPUT_ADDRESS}')
         mdata.var_names_make_unique()
+        #Load annotations
+        mdata= boot.add_annon(mdata, subset=False, data=DATA, GROUND_TRUTH = GROUND_TRUTH)
     else:
         mdata = mu.read_h5mu(f'Data/{INPUT_ADDRESS}')
-
-    #Load annotations
-    mdata= boot.add_annon(mdata, subset=False, data=DATA, GROUND_TRUTH = GROUND_TRUTH)
+        #Load annotations
+        mdata= boot.add_annon(mdata, subset=False, data=DATA, GROUND_TRUTH = GROUND_TRUTH)
 
     # Bootstrap sample and pre-process without data leakage
     mdata_train, mdata_test = boot.train_test_split_mdata(mdata, seed=i)
@@ -171,7 +177,7 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
 
             boot_time = time.process_time()
 
-            N = 1
+            N = 10
             for i in range(0,N):
                 print(f"Bootstrap sample {i}/{N-1}")
 
@@ -231,6 +237,7 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
 
                 # CLASSIFIER RNA ONLY
                 
+                print("RNA only")
                 model_cl, y_pred_test, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall, rna_precision_scores_per_class, rna_precision_scores_overall, rna_recall_scores_per_class, rna_recall_scores_overall = boot.model_test_main(CL, OUTCOME, FEATURES_RNA_TRAIN,LABELS_TRAIN,
                                                         FEATURES_RNA_TEST,LABELS_TEST, classes=classes, f1_scores_per_class = f1_scores_per_class_rna,
                                                         f1_scores_overall = f1_scores_overall_rna, pap_scores_per_class = pap_scores_per_class_rna,
@@ -240,6 +247,7 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
                 ut.save_model(model_cl, f'{SUFFIX}_rna_{i}')
                 
                 # CLASSIFIER RNA + ATAC
+                print("RNA + ATAC")
                 model_cl, y_pred_test, comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall, comb_precision_scores_per_class, comb_precision_scores_overall, comb_recall_scores_per_class, comb_recall_scores_overall = boot.model_test_main(CL, OUTCOME, FEATURES_COMB_TRAIN,LABELS_TRAIN,
                                                         FEATURES_COMB_TEST,LABELS_TEST, classes=classes, f1_scores_per_class=f1_scores_per_class,
                                                         f1_scores_overall = f1_scores_overall, pap_scores_per_class = pap_scores_per_class,
@@ -248,16 +256,16 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
                                                         subset = False, detailed = False)
                 ut.save_model(model_cl, f'{SUFFIX}_comb_{i}')
             
-            # Save pap_scores_per_class and f1_scores_per_class from each model
-            scores_vars = [comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall,
-                        rna_precision_scores_per_class, rna_precision_scores_overall, rna_recall_scores_per_class, rna_recall_scores_overall,
-                            comb_precision_scores_per_class, comb_precision_scores_overall, comb_recall_scores_per_class, comb_recall_scores_overall]
-            prefixes = ['comb_pap', 'comb_f1', 'comb_f1_overall', 'rna_pap', 'rna_f1', 'rna_f1_overall',
-                        'rna_precision', 'rna_precision_overall', 'rna_recall', 'rna_recall_overall',
-                        'comb_precision', 'comb_precision_overall', 'comb_recall', 'comb_recall_overall']
-            for scores_vars, prefixes in zip(scores_vars, prefixes):
-                with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/{prefixes}_{SUFFIX}.pkl', 'wb') as f:
-                    pickle.dump(scores_vars, f)
+                # Save pap_scores_per_class and f1_scores_per_class from each model
+                scores_vars = [comb_pap_scores_per_class, comb_f1_scores_per_class, comb_f1_scores_overall, rna_pap_scores_per_class, rna_f1_scores_per_class, rna_f1_scores_overall,
+                            rna_precision_scores_per_class, rna_precision_scores_overall, rna_recall_scores_per_class, rna_recall_scores_overall,
+                                comb_precision_scores_per_class, comb_precision_scores_overall, comb_recall_scores_per_class, comb_recall_scores_overall]
+                prefixes = ['comb_pap', 'comb_f1', 'comb_f1_overall', 'rna_pap', 'rna_f1', 'rna_f1_overall',
+                            'rna_precision', 'rna_precision_overall', 'rna_recall', 'rna_recall_overall',
+                            'comb_precision', 'comb_precision_overall', 'comb_recall', 'comb_recall_overall']
+                for scores_vars, prefixes in zip(scores_vars, prefixes):
+                    with open(f'Data/{INPUT_ADDRESS.split("/")[0]}/{prefixes}_{SUFFIX}.pkl', 'wb') as f:
+                        pickle.dump(scores_vars, f)
             
             boot_taken=(time.process_time() - boot_time)
             print(f'CPU time for boostrap ({SUFFIX}): {boot_taken} seconds or {boot_taken/60} mins or {boot_taken/(60*60)} hrs')

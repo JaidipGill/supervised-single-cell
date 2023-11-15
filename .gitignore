@@ -5,6 +5,7 @@
 /Data/Zhang 68k facs
 /Data/PBMC 10k multiomic/processed_data
 /Data/B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5
+/Data/Alz multiomic/Downsampled*
 /Data/PBMC 10k multiomic/pbmc_filtered.h5
 /Data/B cell lymphoma/QC-bcell.h5mu
 /Data/PBMC 10k multiomic/QC-pbmc10k.h5mu

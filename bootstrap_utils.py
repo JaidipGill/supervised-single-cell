@@ -84,6 +84,8 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
             annotations = pd.read_csv('Data/B cell lymphoma/Original Cell Types.csv', sep=',', index_col=0)
         elif GROUND_TRUTH == 'wnnL1':
             annotations= pd.read_csv('Data/B cell lymphoma/wnn Cell Types 1.csv',  sep='\t', header=0, index_col=1)
+        elif GROUND_TRUTH == 'T cells':
+            annotations= pd.read_csv('Data/B cell lymphoma/T-cell Subtypes.csv',  sep=',', header=0, index_col=0)
         ann_list= [annotations]
     elif data == 'pbmc':
         annotations_rna = pd.read_csv('Data/PBMC 10k multiomic/PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
@@ -104,6 +106,8 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
         print(annotations)
         if 'cell_type' in annotations.columns:
             annotations = annotations.rename(columns={'cell_type': 'x'})
+        elif 'T-cell Subtypes' in annotations.columns:
+            annotations = annotations.rename(columns={'T-cell Subtypes': 'x'})
         common_barcodes = annotations.index.intersection(mdata.obs_names)
         print(common_barcodes)
         # Filter annotations and mdata to keep only common barcodes
@@ -335,7 +339,7 @@ def model_test_main(model, outcome, x_train,y_train,x_test,y_test, subset, class
         fig.show()
     '''
     # Estimate confidence interval for F1 score
-    start_time = time.process_time()
+    #start_time = time.process_time()
     #metrics, f1_df, pap_df = bootstrap_confidence_interval(model, x_test, y_test)
     time_taken=(time.process_time() - start_time)
     #print(f"95% confidence interval for F1 score: ({metrics[metrics['class'] == 'Overall']['lower F1 CI'].values[0]:.3f}, {metrics[metrics['class'] == 'Overall']['upper F1 CI'].values[0]:.3f}, mean: {metrics[metrics['class'] == 'Overall']['mean F1 score'].values[0]:.3f})")
