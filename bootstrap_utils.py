@@ -86,6 +86,8 @@ def add_annon(mdata, subset, data, GROUND_TRUTH):
             annotations= pd.read_csv('Data/B cell lymphoma/wnn Cell Types 1.csv',  sep='\t', header=0, index_col=1)
         elif GROUND_TRUTH == 'T cells':
             annotations= pd.read_csv('Data/B cell lymphoma/T-cell Subtypes.csv',  sep=',', header=0, index_col=0)
+        elif GROUND_TRUTH == 'wnnL2':
+            annotations= pd.read_csv('Data/B cell lymphoma/Complete Cell Types.csv',  sep=',', index_col=0) 
         ann_list= [annotations]
     elif data == 'pbmc':
         annotations_rna = pd.read_csv('Data/PBMC 10k multiomic/PBMC-10K-celltype.txt', sep='\t', header=0, index_col=0)
@@ -209,6 +211,7 @@ def model_test_main(model, outcome, x_train,y_train,x_test,y_test, subset, class
     else:
         cv_splits = 5
     start_time = time.process_time()
+    print(x_train.shape)
     #Hyperparameter dictionaries
     if  isinstance(model, XGBClassifier):
         param_grid={'n_estimators'     : np.array([4**2, 4**3, 4**4]),

@@ -12,31 +12,40 @@ from importlib import reload
 # %% ----------------------------------------------------------------
 # CONFIGURATION
 
-DATA = 'AD' # 'pbmc' or 'cancer' or 'AD
+DATA = 'cancer' # 'pbmc' or 'cancer' or 'AD
 
 if DATA == 'pbmc':
     RAW = 'Data/PBMC 10k multiomic/pbmc_filtered.h5'
     QC = 'Data/PBMC 10k multiomic/QC-pbmc10k.h5mu'
     UPPER_GENES = 5000
     UPPER_UNIQUE_PEAKS = 15000
+    LOWER_UNIQUE_PEAKS = 2000
     TOTAL_COUNTS = 15000
+    LOWER_TOTAL_PEAKS=4000
+    UPPER_TOTAL_PEAKS=40000
 elif DATA == 'cancer':
     RAW = 'Data/B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5'
     QC = 'Data/B cell lymphoma/QC-bcell.h5mu'
     UPPER_GENES = 5000
-    UPPER_UNIQUE_PEAKS = 15000
+    UPPER_UNIQUE_PEAKS = 30000
+    LOWER_UNIQUE_PEAKS = 500
     TOTAL_COUNTS = 15000
+    LOWER_TOTAL_PEAKS=500
+    UPPER_TOTAL_PEAKS=70000
 elif DATA == 'AD':
     RAW = "Data/Alz multiomic/Downsampled10%_matrix.h5mu"
     QC = 'Data/Alz multiomic/Downsampled10%_matrix_processed.h5mu'
     UPPER_GENES = 10000
     UPPER_UNIQUE_PEAKS = 25000
+    LOWER_UNIQUE_PEAKS = 2000
     TOTAL_COUNTS = 25000
+    LOWER_TOTAL_PEAKS=4000
+    UPPER_TOTAL_PEAKS=40000
 
 # %% ----------------------------------------------------------------
 # Quality Control
 
-ut.quality_control(data = DATA, input_file = RAW, upper_genes = UPPER_GENES, total_counts = TOTAL_COUNTS, output_file = QC, upper_unique_peaks = UPPER_UNIQUE_PEAKS, lower_unique_peaks=2000, lower_total_peaks=4000, upper_total_peaks=40000)
+ut.quality_control(data = DATA, input_file = RAW, upper_genes = UPPER_GENES, total_counts = TOTAL_COUNTS, output_file = QC, upper_unique_peaks = UPPER_UNIQUE_PEAKS, lower_unique_peaks=LOWER_UNIQUE_PEAKS, lower_total_peaks=LOWER_TOTAL_PEAKS, upper_total_peaks=UPPER_TOTAL_PEAKS)
 
 # %% ----------------------------------------------------------------
 # LOAD DATA FOR RE-ANNOTATION OF PBMC DATASET
@@ -85,4 +94,22 @@ for sample in range(10):
             y['1'] = y['2'].map(label_dict)
             # Save the file
             y.to_pickle(f'Data/PBMC 10k multiomic/Bootstrap_y/y_{split}_{embedding}_{sample}.pkl')
+# %% ----------------------------------------------------------------
+# CREATE MIXED ANNOTATIONS FOR B CELL LYMPHOMA DATASET
+
+# Load the annotations
+annotations_t = pd.read_csv('Data/B cell lymphoma/T-cell Subtypes.csv')
+annotations_o = pd.read_csv('Data/B cell lymphoma/Original Cell Types.csv')
+
+# Set 'Barcode' as index for df1
+annotations_t.set_index('Barcode', inplace=True)
+# Merge the dataframes on the index (which is 'Barcode' for df1 and 'index' for df2)
+merged_df = annotations_o.merge(annotations_t, left_on='index', right_index=True, how='left')
+# Update the 'x' column in df2 with 'T-cell Subtypes' from merged_df
+annotations_o['x'] = merged_df['T-cell Subtypes']
+# Fill the NaN values in 'x' column with 'Original Cell Types' from merged_df
+annotations_o['x'].fillna(merged_df['x'], inplace=True)
+# Save the updated annotations
+annotations_o.to_csv('Data/B cell lymphoma/Complete Cell Types.csv', index=False)
+
 # %%

@@ -33,7 +33,7 @@ svm_model=svm.SVC(random_state=42, class_weight='balanced')
 log_reg=LogisticRegression(random_state=42, class_weight='balanced')
 
 EMBEDDING = 'PCA' # Choose from: PCA, CCA, scVI
-GROUND_TRUTH = 'T cells' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna, T cells   AD: wnnL2
+GROUND_TRUTH = 'wnnL2' # PBMC: wnnL2, wnnL1, rna    Cancer: wnnL2, wnnL1, rna, T cells   AD: wnnL2
 CELL_TYPE = 'All' # Choose from: All, B cells, T cells, Monoblast-Derived   # Choose from: 10, 35
 CL = svm_model # Choose from: xgb, rf, svm_model, log_reg
 N_COMPONENTS_TO_TEST = 35 # Choose from: 10, 35
@@ -45,7 +45,7 @@ if DATA == 'pbmc':
     OUTCOME = 'multi'
 elif DATA == 'cancer':
     INPUT_ADDRESS = "B cell lymphoma/lymph_node_lymphoma_14k_filtered_feature_bc_matrix.h5"
-    OUTCOME = 'binary'
+    OUTCOME = 'multi'
     if GROUND_TRUTH == 'wnnL1':
         GROUND_TRUTH_SUFFIX = '_wnnL1'
     elif GROUND_TRUTH == 'rna':
@@ -146,14 +146,12 @@ for i in range(0,N):
     # Save label dataframe
     y_train.to_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_train_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
     y_test.to_pickle(f'Data/{INPUT_ADDRESS.split("/")[0]}/Bootstrap_y/y_test_{EMBEDDING}_{i}{GROUND_TRUTH_SUFFIX}.pkl')
-
-
     
 # %% ----------------------------------------------------------------
 # RUN MODELS ON BOOTSTRAP SAMPLES
 
-for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
-    for EMBEDDING in ['PCA']: # ['PCA', 'scVI']
+for GROUND_TRUTH in ['T cells']: # ['wnnL2', 'wnnL1', 'rna', 'T cells']
+    for EMBEDDING in ['PCA','scVI']: # ['PCA', 'scVI']
         for CL in [svm_model]: # [rf, svm_model, log_reg]
             # Get the classes
             SUFFIX = f'{DATA}_{CL.__class__.__name__}_{EMBEDDING}_{GROUND_TRUTH}_{CELL_TYPE}_{N_COMPONENTS}'
@@ -177,7 +175,7 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
 
             boot_time = time.process_time()
 
-            N = 10
+            N = 5
             for i in range(0,N):
                 print(f"Bootstrap sample {i}/{N-1}")
 
@@ -204,10 +202,6 @@ for GROUND_TRUTH in ['wnnL2']: # ['wnnL2', 'wnnL1', 'rna']
                         col = '0'
                 elif DATA == 'cancer':
                     col = '0'
-                    noise = np.random.normal(loc=0, scale=0.5, size=X_train.shape)
-                    X_train = X_train + noise
-                    noise = np.random.normal(loc=0, scale=0.5, size=X_test.shape)
-                    X_test = X_test + noise
                 elif DATA == 'AD':
                     col = '0'
                 y_train = y_train[col]
