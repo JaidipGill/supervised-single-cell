@@ -30,9 +30,9 @@ The supervised annotation pipeline consisted of three steps.
 ## Files
 
 The pipeline was run as follows:
-1. Download data (above) and place in corresponding subfolder within `/Data`
+1. Download the data (above) and place it in the corresponding subfolder within `/Data`
 2. Perform quality control of feature-barcode matrix + ground truth annotation by running `Pre-processing.py`
-3. Generate bootstrap X and y datasets using the quality controlled data and run ML models to generate raw performance metrics (e.g. F1 scores) -> `boostrap.py`
+3. Generate bootstrap X and y datasets using the quality-controlled data and run ML models to generate raw performance metrics (e.g. F1 scores) -> `boostrap.py`
 4. Process metrics to generate statistical measures (e.g. Mean, CIs) -> `Results Analysis.py`
 5. Perform statistical tests to compare performance between models (e.g. Wilcoxon test) -> `stats_test_bootstrap.R`
 
@@ -40,18 +40,14 @@ The pipeline was run as follows:
 C:.
 |   .gitignore
 |   .Rhistory
-|   bootstrap.py                # Generates bootstrapped embeddings and classification results using original dataset
-|   bootstrap_utils.py 
+|   bootstrap.py                # Generates bootstrapped embeddings and classification results using the original dataset
+|   bootstrap_utils.py          # Utility functions for the bootstrap procedure
 |   Interpretation dataset.py   # Generates dataset for interpretation
-|   Interpretation Model.R      # Performs interpreation analysis
-|   ML_models.py                # Supervised ML algorithms, feature importance and other visualisations
-|   output.txt
-|   Pre-processing.py           # QC of original dataset. This [muon tutorial](https://muon-tutorials.readthedocs.io/en/latest/single-cell-rna-atac/index.html) was used to guide pre-processing.
+|   Interpretation Model.R      # Performs interpretation analysis (unpublished)
+|   Pre-processing.py           # QC of the original dataset. This [muon tutorial](https://muon-tutorials.readthedocs.io/en/latest/single-cell-rna-atac/index.html) was used to guide pre-processing.
 |   README.md
 |   Result Analysis.py          # Processing of results
-|   Results.xlsx                
-|   stats_tests_bootstrap.R     # Statistical test of classificationr results
-|   Train_test PBMC10k.py       # Dimensionality reduction of pre-processed PBMC 10K data to output training and test data ready for input into supervised ML workflows.
+|   stats_tests_bootstrap.R     # Statistical test of classification results
 |   Utils.py                    # Utility functions used in other Python scripts
 +---Data
 |   +---Figures
